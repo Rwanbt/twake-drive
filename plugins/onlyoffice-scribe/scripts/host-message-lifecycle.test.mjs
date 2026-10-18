@@ -81,6 +81,21 @@ test('closing panel while replacement reads old document drops eventual write', 
     'the replacement write must not execute once its panel has closed')
 })
 
+test('closing panel during asynchronous content read cannot reveal document contents', async () => {
+  const app = harness()
+  app.holdNextRead()
+  const pending = app.emit('twake-scribe:getContent')
+  for (let i = 0; i < 3; i += 1) await Promise.resolve()
+  assert.equal(app.calls.length, 1)
+  await app.emit('twake-scribe:close')
+  app.flushRead()
+  await pending
+  assert.equal(app.sent.length, 1, 'only initial ready notification may be sent')
+  assert.equal(app.sent[0].message.type, 'twake-scribe:ready')
+  await app.emit('twake-scribe:applyAnswer', { text: 'late write', answerAction: 'insert' })
+  assert.equal(app.calls.length, 1, 'a stale read must not reopen the closed panel')
+})
+
 test('authorized open panel can apply a valid answer', async () => {
   const app = harness()
   await app.emit('twake-scribe:getContent')
