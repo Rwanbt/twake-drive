@@ -61,7 +61,9 @@ jobs:
         run: yarn e2e ${{ env.E2E_ARGS }}
 
       - name: Upload test report
-        if: failure()
+        # Successful mobile/Scribe screenshots are evidence too. The test
+        # stack contains disposable fixtures, not personal account data.
+        if: success() || failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-report-${{ env.E2E_REPORT }}

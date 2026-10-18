@@ -66,6 +66,13 @@ test.describe('File Picker mobile', () => {
       height: viewport.height
     })
 
+    // Preserve a real Chromium mobile-viewport capture on successful runs,
+    // rather than limiting accessibility/layout evidence to failed tests.
+    await test.info().attach('mobile-file-picker-viewport.png', {
+      body: await alicePage.screenshot({ animations: 'disabled' }),
+      contentType: 'image/png'
+    })
+
     await picker.navigateToFolderOnMobile(parentFolder)
     await picker.tapItem(fileName)
     await expect.poll(() => picker.getCheckboxCount()).toBe(2)
