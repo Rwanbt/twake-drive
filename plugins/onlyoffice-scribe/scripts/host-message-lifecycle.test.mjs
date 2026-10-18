@@ -63,9 +63,11 @@ function harness() {
     readContent, writeBlocks, makeBlocks: text => text ? [text] : []
   })
   plugin.init()
-  const emit = (type, data = {}) => listener({ source: host, origin, data: { type, ...data } })
+  const emitRaw = (sourceWindow, sourceOrigin, type, data = {}) =>
+    listener({ source: sourceWindow, origin: sourceOrigin, data: { type, ...data } })
+  const emit = (type, data = {}) => emitRaw(host, origin, type, data)
   return {
-    calls, sent, emit, readContent, writeBlocks,
+    calls, sent, emit, emitRaw, readContent, writeBlocks,
     holdNextRead: () => { holdRead = true },
     flushRead: () => { assert.ok(resolveRead); holdRead = false; resolveRead(readResult) },
     holdNextSelection: () => { holdSelection = true },
@@ -76,6 +78,24 @@ function harness() {
     fireSelectionTimer: () => { assert.ok(timers.length); return timers.shift()() }
   }
 }
+
+test('same-origin sibling window cannot revive closed Scribe or read after reopen', async () => {
+  const app = harness()
+  const sibling = { postMessage() { throw new Error('leaked into wrong window') } }
+  await app.emit('twake-scribe:getContent')
+  await app.emit('twake-scribe:close')
+  await app.emitRaw(sibling, origin, 'twake-scribe:getContent')
+  await app.emitRaw(sibling, origin, 'twake-scribe:applyAnswer', {
+    text: 'foreign write', answerAction: 'insert'
+  })
+  assert.equal(app.calls.length, 1)
+  await app.emit('twake-scribe:getContent')
+  await app.emitRaw(sibling, origin, 'twake-scribe:insertSlide', {
+    title: 'foreign', bullets: ['foreign']
+  })
+  assert.equal(app.calls.length, 2, 'another same-origin window must not write in the newly opened panel')
+  assert.equal(app.sent.filter(({ message }) => message.type === 'twake-scribe:content').length, 2)
+})
 
 test('unopened and closed panels reject delayed answer and slide writes', async () => {
   const app = harness()
