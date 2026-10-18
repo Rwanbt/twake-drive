@@ -66,7 +66,7 @@ function harness() {
   function writeSlideLines() {}
   function findWrittenParagraphs() {}
   function insertSlide() {}
-  runInNewContext(source, {
+  runInNewContext(source + '\nwindow.__getCurrentSelection = () => lastSelectedText', {
     window, URL,
     setTimeout: callback => { timers.push(callback); return timers.length },
     clearTimeout: () => {},
@@ -83,6 +83,7 @@ function harness() {
   const emit = (type, data = {}) => emitRaw(host, origin, type, data)
   return {
     calls, sent, emit, emitRaw, readContent, writeBlocks, priorWritten,
+    currentSelection: () => window.__getCurrentSelection(),
     setEditorType: type => { plugin.info.editorType = type },
     holdNextWrite: () => { holdWrite = true },
     flushWrite: result => { assert.ok(resolveWrite); resolveWrite(result) },
@@ -253,4 +254,18 @@ test('reopened panel can write while stale prior-panel selection is still pendin
     'a stale pending selection must not block a new authorized write')
   app.flushSelection('old result')
   await stale
+})
+
+test('a closed answer cannot overwrite selection state after a new panel opens', async () => {
+  const app = harness()
+  await app.emit('twake-scribe:getContent')
+  app.holdNextSelection()
+  const oldAnswer = app.emit('twake-scribe:applyAnswer', { text: 'old text', answerAction: 'insert' })
+  for (let i = 0; i < 6; i += 1) await Promise.resolve()
+  await app.emit('twake-scribe:close')
+  await app.emit('twake-scribe:getContent')
+  assert.equal(app.currentSelection(), '')
+  app.flushSelection('old panel selection')
+  await oldAnswer
+  assert.equal(app.currentSelection(), '', 'stale selection must not contaminate new panel')
 })

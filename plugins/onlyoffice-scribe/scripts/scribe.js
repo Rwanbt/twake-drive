@@ -239,8 +239,11 @@ async function applyAnswer(answer, request) {
     if (!canWrite()) return
     // The answer is left selected: it is not another text to work on
     const selectedText = await fetchSelectedText()
+    if (!canWrite()) return
     if (selectedText?.trim()) {
-      lastContent = (await fetchContent())?.content ?? lastContent
+      const refreshed = await fetchContent()
+      if (!canWrite()) return
+      lastContent = refreshed?.content ?? lastContent
       lastSelectedText = selectedText
     }
   } finally {
