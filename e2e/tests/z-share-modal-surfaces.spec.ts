@@ -93,7 +93,7 @@ test.describe.serial('Share modal surfaces (shared drives)', () => {
     const ariaLabel = await modal.dialog.getAttribute('aria-label')
     expect(Boolean(labelledBy?.trim() || ariaLabel?.trim())).toBe(true)
     if (labelledBy) {
-      const label = modal.dialog.locator(
+      const label = alicePage.locator(
         labelledBy.split(/\s+/).map(id => `#${id}`).join(', ')
       )
       await expect(label.first()).not.toBeEmpty()
@@ -117,7 +117,6 @@ test.describe.serial('Share modal surfaces (shared drives)', () => {
     alicePage,
     aliceDrive
   }) => {
-    await alicePage.setViewportSize({ width: 320, height: 700 })
     await waitForSharingRow(
       alicePage,
       USERS.alice,
@@ -127,6 +126,9 @@ test.describe.serial('Share modal surfaces (shared drives)', () => {
     )
     const modal = await aliceDrive.row(DRIVE_NAME).share()
     await expect(modal.dialog).toBeVisible()
+    // Preserve the existing desktop sharing entry point; then stress the
+    // actual open dialog when the viewport is resized to mobile width.
+    await alicePage.setViewportSize({ width: 320, height: 700 })
     const rectangle = await modal.dialog.boundingBox()
     expect(rectangle).not.toBeNull()
     if (!rectangle) throw new Error('Visible share dialog has no bounding box')
