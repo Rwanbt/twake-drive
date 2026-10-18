@@ -65,3 +65,16 @@ Passing these deterministic boundary tests is **not** proof of a safe
 OnlyOffice deployment. Full Jest/Playwright/OnlyOffice integration, browser
 CSP, document permissions, cross-window initialization, and build output
 must still pass on the PR's exact HEAD SHA before merge.
+### Editor command failure and stale queued writes
+
+The actual Scribe `runInEditor` queue previously kept a rejected Promise
+as `lastCommand` after a synchronous `Asc.plugin.callCommand` exception.
+This permanently rejected later editor operations, even after a valid
+request from the same authorized panel. A direct VM test reproduced the
+failure (RED); the queue now handles the prior rejection *for scheduling*
+while still returning the original rejection to its caller (GREEN).
+An additional controlled queued-read test proves a stale replacement cannot
+write when the original Scribe panel closes, even if the same trusted origin
+opens a new panel. Both tests exercise the production `scribe.js` listener,
+not a copied authorization mock. These local tests do not replace the real
+Playwright/OnlyOffice CI gate.

@@ -53,7 +53,10 @@ function runInEditor(
       window.Asc.plugin.callCommand(command, false, isRecalculated, resolve)
     })
   })
-  lastCommand = run
+  // An editor command may throw after OnlyOffice destroys/recreates its
+  // plugin instance. Reject that request, but do not poison the serialized
+  // queue forever: a later authorized panel must be able to retry.
+  lastCommand = run.catch(() => null)
   return run
 }
 

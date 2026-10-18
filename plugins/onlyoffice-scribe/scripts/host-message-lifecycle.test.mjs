@@ -16,6 +16,7 @@ function harness() {
   let resolveRead
   let holdSelection = false
   let resolveSelection
+  let failNextCommand = false
   let readResult = { content: 'private data', target: 'document', canReplace: true }
   const timers = []
   const host = { postMessage: (message, to) => sent.push({ message, to }) }
@@ -24,6 +25,10 @@ function harness() {
     scope: {},
     callCommand: (command, _a, _b, resolve) => {
       calls.push(command)
+      if (failNextCommand) {
+        failNextCommand = false
+        throw new Error('editor disconnected')
+      }
       if (holdRead && command === readContent) {
         resolveRead = resolve
       } else {
@@ -62,10 +67,11 @@ function harness() {
   return {
     calls, sent, emit, readContent, writeBlocks,
     holdNextRead: () => { holdRead = true },
-    flushRead: () => { assert.ok(resolveRead); resolveRead(readResult) },
+    flushRead: () => { assert.ok(resolveRead); holdRead = false; resolveRead(readResult) },
     holdNextSelection: () => { holdSelection = true },
     flushSelection: text => { assert.ok(resolveSelection); resolveSelection(text) },
     setReadResult: result => { readResult = result },
+    failNextCommand: () => { failNextCommand = true },
     reinitialize: () => plugin.init(),
     fireSelectionTimer: () => { assert.ok(timers.length); return timers.shift()() }
   }
@@ -81,6 +87,35 @@ test('unopened and closed panels reject delayed answer and slide writes', async 
   await app.emit('twake-scribe:applyAnswer', { text: 'stale answer', answerAction: 'insert' })
   await app.emit('twake-scribe:insertSlide', { title: 'stale', bullets: ['stale'] })
   assert.equal(app.calls.length, 1, 'closing the panel must revoke queued writes')
+})
+
+test('temporary OnlyOffice command failure cannot poison all future editor commands', async () => {
+  const app = harness()
+  app.failNextCommand()
+  await assert.rejects(app.emit('twake-scribe:getContent'), /editor disconnected/)
+  await app.emit('twake-scribe:getContent')
+  assert.equal(app.calls.length, 2, 'a subsequent authorized request must reach the editor')
+  assert.equal(app.sent.filter(({ message }) => message.type === 'twake-scribe:content').length, 1)
+})
+
+test('queued replacement writes are revoked even if the panel reopens at the same origin', async () => {
+  const app = harness()
+  app.holdNextRead()
+  const first = app.emit('twake-scribe:getContent')
+  for (let i = 0; i < 3; i += 1) await Promise.resolve()
+  const queued = app.emit('twake-scribe:applyAnswer', {
+    text: 'must not write from old panel',
+    answerAction: 'replace'
+  })
+  await app.emit('twake-scribe:close')
+  app.flushRead()
+  await first
+  await queued
+  await app.emit('twake-scribe:getContent')
+  assert.equal(app.calls.filter(command => command === app.writeBlocks).length, 0,
+    'no stale write may execute from a closed panel')
+  assert.equal(app.sent.filter(({ message }) => message.type === 'twake-scribe:content').length, 1,
+    'the newly authorized panel can still read content')
 })
 
 test('closing panel while replacement reads old document drops eventual write', async () => {
