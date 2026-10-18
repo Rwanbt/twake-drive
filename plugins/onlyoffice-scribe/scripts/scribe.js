@@ -141,7 +141,8 @@ async function sendSelection() {
     request !== contentRequest ||
     hostOrigin !== origin ||
     !selectedText?.trim()
-  ) return
+  )
+    return
   if (selectedText === lastSelectedText) return
 
   const { content, target, canReplace } = (await fetchContent()) ?? {}
@@ -150,7 +151,8 @@ async function sendSelection() {
     hostOrigin !== origin ||
     target !== 'selection' ||
     content === lastContent
-  ) return
+  )
+    return
   lastContent = content
   lastSelectedText = selectedText
   // The answer last written in a presentation is no more the selection
