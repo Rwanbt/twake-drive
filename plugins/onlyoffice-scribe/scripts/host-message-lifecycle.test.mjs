@@ -14,6 +14,10 @@ function harness() {
   let listener
   let holdRead = false
   let resolveRead
+  let holdSelection = false
+  let resolveSelection
+  let readResult = { content: 'private data', target: 'document', canReplace: true }
+  const timers = []
   const host = { postMessage: (message, to) => sent.push({ message, to }) }
   const plugin = {
     info: { editorType: 'word' },
@@ -23,10 +27,17 @@ function harness() {
       if (holdRead && command === readContent) {
         resolveRead = resolve
       } else {
-        resolve({ content: 'private data', target: 'document', canReplace: true })
+        resolve(readResult)
       }
     },
-    executeMethod: (_name, _args, resolve) => resolve('')
+    executeMethod: (_name, _args, resolve) => {
+      if (holdSelection) {
+        holdSelection = false
+        resolveSelection = resolve
+      } else {
+        resolve('')
+      }
+    }
   }
   const window = {
     parent: {
@@ -40,7 +51,10 @@ function harness() {
   function readContent() {}
   function writeBlocks() {}
   runInNewContext(source, {
-    window, URL, setTimeout, clearTimeout, isTrustedHostMessage,
+    window, URL,
+    setTimeout: callback => { timers.push(callback); return timers.length },
+    clearTimeout: () => {},
+    isTrustedHostMessage,
     readContent, writeBlocks, makeBlocks: text => text ? [text] : []
   })
   plugin.init()
@@ -48,7 +62,12 @@ function harness() {
   return {
     calls, sent, emit, readContent, writeBlocks,
     holdNextRead: () => { holdRead = true },
-    flushRead: () => { assert.ok(resolveRead); resolveRead({ content: 'private data', target: 'document', canReplace: true }) }
+    flushRead: () => { assert.ok(resolveRead); resolveRead(readResult) },
+    holdNextSelection: () => { holdSelection = true },
+    flushSelection: text => { assert.ok(resolveSelection); resolveSelection(text) },
+    setReadResult: result => { readResult = result },
+    reinitialize: () => plugin.init(),
+    fireSelectionTimer: () => { assert.ok(timers.length); return timers.shift()() }
   }
 }
 
@@ -101,4 +120,19 @@ test('authorized open panel can apply a valid answer', async () => {
   await app.emit('twake-scribe:getContent')
   await app.emit('twake-scribe:applyAnswer', { text: 'answer', answerAction: 'insert' })
   assert.ok(app.calls.includes(app.writeBlocks), 'valid write must remain functional')
+})
+
+test('a delayed selection from a closed panel cannot leak into a reopened panel', async () => {
+  const app = harness()
+  await app.emit('twake-scribe:getContent')
+  app.holdNextSelection()
+  app.reinitialize()
+  const oldSelection = app.fireSelectionTimer()
+  await app.emit('twake-scribe:close')
+  await app.emit('twake-scribe:getContent')
+  app.setReadResult({ content: 'different private selection', target: 'selection', canReplace: true })
+  app.flushSelection('old selection text')
+  await oldSelection
+  assert.equal(app.sent.filter(({ message }) => message.type === 'twake-scribe:selection').length, 0,
+    'the previous panel must not publish a selection to the new panel')
 })

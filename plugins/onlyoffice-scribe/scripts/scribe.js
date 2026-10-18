@@ -131,13 +131,18 @@ async function sendContent(origin) {
 // empties the redo of the editor.
 async function sendSelection() {
   if (!hostOrigin || isWriting || Date.now() < pausedUntil) return
+  // A close/reopen may retain the same host origin. Keep the request epoch too,
+  // otherwise a delayed selection from the previous panel can reach the new one.
+  const request = contentRequest
+  const origin = hostOrigin
   const selectedText = await fetchSelectedText()
   // The panel may have been closed while the selection was read
-  if (!hostOrigin || !selectedText?.trim()) return
+  if (request !== contentRequest || hostOrigin !== origin || !selectedText?.trim()) return
   if (selectedText === lastSelectedText) return
 
   const { content, target, canReplace } = (await fetchContent()) ?? {}
-  if (!hostOrigin || target !== 'selection' || content === lastContent) return
+  if (request !== contentRequest || hostOrigin !== origin ||
+      target !== 'selection' || content === lastContent) return
   lastContent = content
   lastSelectedText = selectedText
   // The answer last written in a presentation is no more the selection
@@ -145,7 +150,7 @@ async function sendSelection() {
 
   host.postMessage(
     { type: 'twake-scribe:selection', content, target, canReplace },
-    hostOrigin
+    origin
   )
 }
 
