@@ -17,6 +17,9 @@ function harness() {
   let holdSelection = false
   let resolveSelection
   let failNextCommand = false
+  let holdWrite = false
+  let resolveWrite
+  const priorWritten = []
   let readResult = { content: 'private data', target: 'document', canReplace: true }
   const timers = []
   const host = { postMessage: (message, to) => sent.push({ message, to }) }
@@ -25,11 +28,15 @@ function harness() {
     scope: {},
     callCommand: (command, _a, _b, resolve) => {
       calls.push(command)
+      if (command === writeSlideLines) priorWritten.push(window.Asc.scope.written)
       if (failNextCommand) {
         failNextCommand = false
         throw new Error('editor disconnected')
       }
-      if (holdRead && command === readContent) {
+      if (holdWrite && command === writeSlideLines) {
+        resolveWrite = resolve
+        holdWrite = false
+      } else if (holdRead && command === readContent) {
         resolveRead = resolve
       } else {
         resolve(readResult)
@@ -55,19 +62,30 @@ function harness() {
   }
   function readContent() {}
   function writeBlocks() {}
+  function readSlideContent() {}
+  function writeSlideLines() {}
+  function findWrittenParagraphs() {}
+  function insertSlide() {}
   runInNewContext(source, {
     window, URL,
     setTimeout: callback => { timers.push(callback); return timers.length },
     clearTimeout: () => {},
     isTrustedHostMessage,
-    readContent, writeBlocks, makeBlocks: text => text ? [text] : []
+    readContent, writeBlocks, readSlideContent, writeSlideLines,
+    findWrittenParagraphs, insertSlide,
+    makeBlocks: text => text ? [text] : [],
+    makeLineSpans: blocks => blocks,
+    makeLines: blocks => blocks
   })
   plugin.init()
   const emitRaw = (sourceWindow, sourceOrigin, type, data = {}) =>
     listener({ source: sourceWindow, origin: sourceOrigin, data: { type, ...data } })
   const emit = (type, data = {}) => emitRaw(host, origin, type, data)
   return {
-    calls, sent, emit, emitRaw, readContent, writeBlocks,
+    calls, sent, emit, emitRaw, readContent, writeBlocks, priorWritten,
+    setEditorType: type => { plugin.info.editorType = type },
+    holdNextWrite: () => { holdWrite = true },
+    flushWrite: result => { assert.ok(resolveWrite); resolveWrite(result) },
     holdNextRead: () => { holdRead = true },
     flushRead: () => { assert.ok(resolveRead); holdRead = false; resolveRead(readResult) },
     holdNextSelection: () => { holdSelection = true },
@@ -95,6 +113,29 @@ test('same-origin sibling window cannot revive closed Scribe or read after reope
   })
   assert.equal(app.calls.length, 2, 'another same-origin window must not write in the newly opened panel')
   assert.equal(app.sent.filter(({ message }) => message.type === 'twake-scribe:content').length, 2)
+})
+
+test('a closed presentation write cannot repopulate the reopened panel state', async () => {
+  const app = harness()
+  app.setEditorType('slide')
+  await app.emit('twake-scribe:getContent')
+  app.holdNextWrite()
+  const stale = app.emit('twake-scribe:applyAnswer', {
+    text: 'old slide answer', answerAction: 'insert'
+  })
+  for (let i = 0; i < 8; i += 1) await Promise.resolve()
+  assert.equal(app.priorWritten.length, 1, 'old slide write entered the editor')
+  await app.emit('twake-scribe:close')
+  const reopened = app.emit('twake-scribe:getContent')
+  app.flushWrite({ oldSlide: true })
+  await stale
+  await reopened
+  await app.emit('twake-scribe:applyAnswer', {
+    text: 'new slide answer', answerAction: 'insert'
+  })
+  assert.equal(app.priorWritten.length, 2)
+  assert.equal(app.priorWritten[1], null,
+    'a completed stale slide write must not become the new panel’s written selection')
 })
 
 test('unopened and closed panels reject delayed answer and slide writes', async () => {

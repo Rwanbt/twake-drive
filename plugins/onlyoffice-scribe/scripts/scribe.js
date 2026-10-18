@@ -102,13 +102,14 @@ async function writePresentation(text, isReplace, canWrite) {
     const lines = makeLines(blocks)
     await callEditor('ReplaceTextSmart', [lines])
     if (!canWrite()) return
-    written = await runInEditor(findWrittenParagraphs, {
+    const nextWritten = await runInEditor(findWrittenParagraphs, {
       scope: { count: lines.length },
       canRun: canWrite
     })
+    if (canWrite()) written = nextWritten
     return
   }
-  written = result
+  if (canWrite()) written = result
 }
 
 function fetchContent() {
@@ -264,7 +265,7 @@ async function addSlide({ title, bullets }, request) {
       canRun: () => hostOrigin !== null && request === contentRequest
     })
     // The paragraphs of the last answer are on another slide now
-    written = null
+    if (hostOrigin !== null && request === contentRequest) written = null
   } finally {
     if (writingRequest === request) writingRequest = null
   }
