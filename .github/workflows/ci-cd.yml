@@ -37,7 +37,8 @@ jobs:
         run: |
           node --test \
             plugins/onlyoffice-scribe/scripts/host-messages.test.mjs \
-            plugins/onlyoffice-scribe/scripts/host-message-lifecycle.test.mjs
+            plugins/onlyoffice-scribe/scripts/host-message-lifecycle.test.mjs \
+            plugins/onlyoffice-scribe/build-files.test.mjs
       - name: Build
         run: yarn build
       - name: BundleMon

@@ -23,6 +23,17 @@ in-flight replacements cannot write stale content. Valid open-panel writes
 remain functional. Both suites are required steps in
 `.github/workflows/ci-cd.yml`.
 
+### Packaged plugin reproducibility
+
+The real GitHub Playwright run failed 11 Scribe document tests with
+`Asc.plugin.init is not a function`. The OnlyOffice package builder
+copied `.js` but omitted `.mjs`, including the runtime security
+module imported by `scribe.js`. The browser could not execute the
+entrypoint. The packager now includes both runtime module formats and
+excludes test files. The standalone build-inventory tests validate every
+relative runtime import against the files selected for shipping.
+An actual GitHub browser E2E rerun is required for qualification.
+
 Passing these deterministic boundary tests is **not** proof of a safe
 OnlyOffice deployment. Full Jest/Playwright/OnlyOffice integration, browser
 CSP, document permissions, cross-window initialization, and build output
