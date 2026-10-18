@@ -136,7 +136,12 @@ async function sendContent(origin) {
 // The selection is read by a command only when its text changes: a command
 // empties the redo of the editor.
 async function sendSelection() {
-  if (!hostOrigin || writingRequest === contentRequest || Date.now() < pausedUntil) return
+  if (
+    !hostOrigin ||
+    writingRequest === contentRequest ||
+    Date.now() < pausedUntil
+  )
+    return
   // A close/reopen may retain the same host origin. Keep the request epoch too,
   // otherwise a delayed selection from the previous panel can reach the new one.
   const request = contentRequest
