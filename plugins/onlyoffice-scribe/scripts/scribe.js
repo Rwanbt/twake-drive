@@ -137,12 +137,20 @@ async function sendSelection() {
   const origin = hostOrigin
   const selectedText = await fetchSelectedText()
   // The panel may have been closed while the selection was read
-  if (request !== contentRequest || hostOrigin !== origin || !selectedText?.trim()) return
+  if (
+    request !== contentRequest ||
+    hostOrigin !== origin ||
+    !selectedText?.trim()
+  ) return
   if (selectedText === lastSelectedText) return
 
   const { content, target, canReplace } = (await fetchContent()) ?? {}
-  if (request !== contentRequest || hostOrigin !== origin ||
-      target !== 'selection' || content === lastContent) return
+  if (
+    request !== contentRequest ||
+    hostOrigin !== origin ||
+    target !== 'selection' ||
+    content === lastContent
+  ) return
   lastContent = content
   lastSelectedText = selectedText
   // The answer last written in a presentation is no more the selection
