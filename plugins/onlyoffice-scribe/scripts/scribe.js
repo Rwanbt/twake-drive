@@ -1,4 +1,5 @@
 import { readContent, writeBlocks } from './document.js'
+import { isTrustedHostMessage } from './host-messages.mjs'
 import { makeBlocks, makeLineSpans, makeLines } from './markdown.js'
 import {
   findWrittenParagraphs,
@@ -20,6 +21,8 @@ const UNDO_REDO_PAUSE = 3000
 let written = null
 // The origin of the app while its panel is open: it has asked for the text
 let hostOrigin = null
+// Stable origin granted by the editor frame, not learned from incoming traffic.
+let expectedHostOrigin = null
 // The text last given to the app, its plain text, and whether an answer is
 // being written
 let lastContent = null
@@ -228,8 +231,8 @@ async function addSlide({ title, bullets }) {
 }
 
 async function handleMessage(event) {
-  // Only the app that shows the editor may read and write the document
-  if (event.source !== host) return
+  // A navigated host window has the same WindowProxy but a different origin.
+  if (!isTrustedHostMessage(event, host, expectedHostOrigin)) return
 
   if (event.data?.type === 'twake-scribe:getContent') {
     await sendContent(event.origin)
@@ -272,9 +275,10 @@ window.Asc.plugin.init = () => {
     return
   }
   isStarted = true
+  expectedHostOrigin = findHostOrigin()
+  // Without an independently supplied origin, no listener may accept writes.
+  if (!expectedHostOrigin) return
   window.addEventListener('message', handleMessage)
   watchUndoRedo()
-  // Without the origin of the app, the plugin stays silent: no AI button
-  const origin = findHostOrigin()
-  if (origin) host.postMessage({ type: 'twake-scribe:ready' }, origin)
+  host.postMessage({ type: 'twake-scribe:ready' }, expectedHostOrigin)
 }

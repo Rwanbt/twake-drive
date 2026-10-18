@@ -33,6 +33,8 @@ jobs:
         run: yarn test
       - name: Test E2E port migration
         run: node --test e2e/helpers/ports.spec.js
+      - name: Test OnlyOffice host message isolation
+        run: node --test plugins/onlyoffice-scribe/scripts/host-messages.test.mjs
       - name: Build
         run: yarn build
       - name: BundleMon
