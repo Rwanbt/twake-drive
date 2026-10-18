@@ -73,6 +73,46 @@ test.describe.serial('Share modal surfaces (shared drives)', () => {
     await expect(alicePage).toHaveURL(/#\/sharings\/by-me$/)
   })
 
+  test('Share from the Sharings list supports a labelled dialog and keyboard dismissal', async ({
+    alicePage,
+    aliceDrive
+  }) => {
+    await waitForSharingRow(
+      alicePage,
+      USERS.alice,
+      aliceDrive,
+      DRIVE_NAME,
+      'by-me'
+    )
+    const modal = await aliceDrive.row(DRIVE_NAME).share()
+    await expect(modal.dialog).toBeVisible()
+
+    // WCAG 4.1.2: a visible modal must expose its accessible name so
+    // assistive-technology users know what the focused content refers to.
+    const labelledBy = await modal.dialog.getAttribute('aria-labelledby')
+    const ariaLabel = await modal.dialog.getAttribute('aria-label')
+    expect(Boolean(labelledBy?.trim() || ariaLabel?.trim())).toBe(true)
+    if (labelledBy) {
+      const label = modal.dialog.locator(
+        labelledBy.split(/\s+/).map(id => `#${id}`).join(', ')
+      )
+      await expect(label.first()).not.toBeEmpty()
+    }
+
+    // WCAG 2.1.1 / 2.1.2: keyboard focus reaches a real share input and
+    // the user can dismiss the modal without using a pointer.
+    const recipientInput = modal.dialog.getByRole('textbox').first()
+    await recipientInput.focus()
+    await expect(recipientInput).toBeFocused()
+    await test.info().attach('share-modal-keyboard-focus', {
+      body: await alicePage.screenshot(),
+      contentType: 'image/png'
+    })
+    await alicePage.keyboard.press('Escape')
+    await expect(modal.dialog).toBeHidden({ timeout: 10_000 })
+    await expect(alicePage).toHaveURL(/#\/sharings\/by-me$/)
+  })
+
   test('Toolbar avatars inside the shared drive keep the folder view', async ({
     bobPage,
     bobDrive
