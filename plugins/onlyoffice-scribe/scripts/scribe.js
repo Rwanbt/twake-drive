@@ -1,5 +1,5 @@
 import { readContent, writeBlocks } from './document.js'
-import { isTrustedHostMessage } from './host-messages.mjs'
+import { isTrustedHostMessage } from './host-messages.js'
 import { makeBlocks, makeLineSpans, makeLines } from './markdown.js'
 import {
   findWrittenParagraphs,

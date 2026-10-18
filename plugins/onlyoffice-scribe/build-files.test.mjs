@@ -12,7 +12,7 @@ const scripts = join(source, 'scripts')
 test('every relative runtime JS import is in the packaged Document Server plugin', () => {
   const all = scribeScriptFiles(scripts)
   assert.ok(all.includes('scribe.js'))
-  assert.ok(all.includes('host-messages.mjs'), 'missing authorization helper breaks plugin initialization')
+  assert.ok(all.includes('host-messages.js'), 'missing authorization helper breaks plugin initialization')
   const discovered = new Set(all)
   for (const name of all) {
     const file = readFileSync(join(scripts, name), 'utf8')
@@ -61,14 +61,24 @@ test('distributed output accepts complete entrypoint and import graph', () => {
   packagedFixture(({ output }) => {
     const files = assertScribePackage(output)
     assert.ok(files.includes('scribe.js'))
-    assert.ok(files.includes('host-messages.mjs'))
+    assert.ok(files.includes('host-messages.js'))
   })
 })
 
 test('distributed output fails closed when the host-security ESM dependency is absent', () => {
   packagedFixture(({ output, packagedScripts }) => {
-    rmSync(join(packagedScripts, 'host-messages.mjs'))
+    rmSync(join(packagedScripts, 'host-messages.js'))
     assert.throws(() => assertScribePackage(output), /Missing Scribe runtime import/)
+  })
+})
+
+test('fail closed when packaged runtime imports .mjs (OnlyOffice serves octet-stream)', () => {
+  packagedFixture(({ output, packagedScripts }) => {
+    const scribe = join(packagedScripts, 'scribe.js')
+    const source = readFileSync(scribe, 'utf8')
+    writeFileSync(scribe, source.replace("from './host-messages.js'", "from './host-messages.mjs'"))
+    writeFileSync(join(packagedScripts, 'host-messages.mjs'), 'export const isTrustedHostMessage = () => true')
+    assert.throws(() => assertScribePackage(output), /Unsupported Scribe browser module extension/)
   })
 })
 

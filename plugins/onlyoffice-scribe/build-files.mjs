@@ -7,8 +7,8 @@ export function scribeScriptFiles(dir) {
   return readdirSync(dir)
     .filter(
       name =>
-        /\.(?:js|mjs)$/.test(name) &&
-        !/\.(?:spec|test)\.(?:js|mjs)$/.test(name)
+        /\.js$/.test(name) &&
+        !/\.(?:spec|test)\.js$/.test(name)
     )
     .sort()
 }
@@ -26,6 +26,11 @@ export function assertScribePackage(output) {
   for (const name of names) {
     const source = readFileSync(join(scripts, name), 'utf8')
     for (const [, dependency] of source.matchAll(/\bfrom\s*['"]\.(\/[^'"]+)['"]/g)) {
+      // OnlyOffice's plugin static server does not serve .mjs with a JS MIME
+      // type. Chromium rejects such imports before Asc.plugin.init runs.
+      if (!dependency.endsWith('.js')) {
+        throw Error('Unsupported Scribe browser module extension: ' + dependency)
+      }
       const target = join(scripts, dependency)
       if (!existsSync(target)) throw Error('Missing Scribe runtime import: ' + name + ' -> ' + dependency)
     }

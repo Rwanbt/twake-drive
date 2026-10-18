@@ -47,6 +47,20 @@ or tags. The `fork-release-policy` tests ensure SSH deployment and
 tests pass locally; complete Playwright Scribe integration and release
 qualification remain separate mandatory gates.
 
+### Chromium/OnlyOffice MIME compatibility
+
+The GitHub Playwright execution `39125123849` (exact SHA `01bdd542`)
+confirmed the prior missing-module fix alone was insufficient: the
+Document Server serves `.mjs` with `application/octet-stream`, rejected
+by Chromium's strict ES module MIME policy. `Asc.plugin.init` never
+executed. The host-origin authorization helper is now deployed as a
+`.js` ES module (the format already used by the working Scribe modules).
+The actual build validator rejects all non-`.js` relative runtime
+imports, with an adversarial fixture reproducing this failure.
+
+This is a code/package-level fix; only a clean Playwright rerun can prove
+that the Document Server loads the corrected module successfully.
+
 Passing these deterministic boundary tests is **not** proof of a safe
 OnlyOffice deployment. Full Jest/Playwright/OnlyOffice integration, browser
 CSP, document permissions, cross-window initialization, and build output

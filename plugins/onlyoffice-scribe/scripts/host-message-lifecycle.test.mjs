@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { runInNewContext } from 'node:vm'
-import { isTrustedHostMessage } from './host-messages.mjs'
+import { isTrustedHostMessage } from './host-messages.js'
 
 const origin = 'https://drive.example.org'
 const source = readFileSync(new URL('./scribe.js', import.meta.url), 'utf8')
