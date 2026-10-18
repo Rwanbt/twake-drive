@@ -191,3 +191,25 @@ test('a delayed selection from a closed panel cannot leak into a reopened panel'
   assert.equal(app.sent.filter(({ message }) => message.type === 'twake-scribe:selection').length, 0,
     'the previous panel must not publish a selection to the new panel')
 })
+
+test('reopened panel can write while stale prior-panel selection is still pending', async () => {
+  const app = harness()
+  await app.emit('twake-scribe:getContent')
+  app.holdNextSelection()
+  const stale = app.emit('twake-scribe:applyAnswer', {
+    text: 'first panel answer', answerAction: 'insert'
+  })
+  // Let the first write finish in the editor, but keep its follow-up
+  // GetSelectedText request suspended while a new panel becomes active.
+  for (let i = 0; i < 6; i += 1) await Promise.resolve()
+  assert.equal(app.calls.filter(command => command === app.writeBlocks).length, 1)
+  await app.emit('twake-scribe:close')
+  await app.emit('twake-scribe:getContent')
+  await app.emit('twake-scribe:applyAnswer', {
+    text: 'new authorized answer', answerAction: 'insert'
+  })
+  assert.equal(app.calls.filter(command => command === app.writeBlocks).length, 2,
+    'a stale pending selection must not block a new authorized write')
+  app.flushSelection('old result')
+  await stale
+})

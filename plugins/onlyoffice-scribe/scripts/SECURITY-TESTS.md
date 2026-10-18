@@ -78,3 +78,28 @@ write when the original Scribe panel closes, even if the same trusted origin
 opens a new panel. Both tests exercise the production `scribe.js` listener,
 not a copied authorization mock. These local tests do not replace the real
 Playwright/OnlyOffice CI gate.
+
+### Chromium close/reopen write ownership regression
+
+An insert can finish in OnlyOffice while `GetSelectedText` remains pending.
+Closing and reopening the assistant at the same host origin must revoke the
+old panel's *write lock*, not just its document command. The shared boolean
+previously blocked a new, valid answer until the old selection callback
+returned. The plugin now owns the write lock by its panel request epoch; an
+obsolete callback cannot block or unlock the new panel.
+
+The actual unmodified `scribe.js` from `418f692` fails the browser test
+(one write instead of two). The updated plugin passes the *same* Chromium
+scenario, including a host-origin sibling iframe attempting a forged read,
+two concurrently pending selection callbacks, and an old callback attempting
+to release the current panel's write lock. The browser loads the real Scribe
+ES modules through a disposable pair of local HTTP origins and stubs only the
+OnlyOffice command bridge; no application accounts or external servers exist.
+
+The CI build runs this targeted real-browser check after the Node lifecycle
+tests. Developers with dependencies installed can reproduce it using:
+
+```sh
+yarn playwright install chromium
+yarn playwright test --config=plugins/onlyoffice-scribe/scripts/playwright.lifecycle.config.cjs
+```

@@ -39,6 +39,10 @@ jobs:
             plugins/onlyoffice-scribe/scripts/host-messages.test.mjs \
             plugins/onlyoffice-scribe/scripts/host-message-lifecycle.test.mjs \
             plugins/onlyoffice-scribe/build-files.test.mjs
+      - name: Install isolated Scribe browser test dependencies
+        run: yarn playwright install --with-deps chromium
+      - name: Exercise actual Scribe host origin and close/reopen lifecycle in Chromium
+        run: yarn playwright test --config=plugins/onlyoffice-scribe/scripts/playwright.lifecycle.config.cjs --reporter=line
       - name: Package OnlyOffice Scribe and verify runtime module graph
         run: yarn build:onlyoffice-scribe
       - name: Test fork-safe release policy

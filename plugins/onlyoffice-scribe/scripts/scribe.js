@@ -27,7 +27,10 @@ let expectedHostOrigin = null
 // being written
 let lastContent = null
 let lastSelectedText = null
-let isWriting = false
+// An editor result may still be awaiting GetSelectedText after its panel is
+// closed. Only a write from the current panel may block new writes/selection;
+// a stale result must neither lock a reopened panel nor release its lock.
+let writingRequest = null
 let selectionTimer = null
 let pausedUntil = 0
 let isStarted = false
@@ -133,7 +136,7 @@ async function sendContent(origin) {
 // The selection is read by a command only when its text changes: a command
 // empties the redo of the editor.
 async function sendSelection() {
-  if (!hostOrigin || isWriting || Date.now() < pausedUntil) return
+  if (!hostOrigin || writingRequest === contentRequest || Date.now() < pausedUntil) return
   // A close/reopen may retain the same host origin. Keep the request epoch too,
   // otherwise a delayed selection from the previous panel can reach the new one.
   const request = contentRequest
@@ -224,7 +227,7 @@ async function writeAnswer({ answerAction, text }, canWrite) {
 
 async function applyAnswer(answer, request) {
   const canWrite = () => hostOrigin !== null && request === contentRequest
-  isWriting = true
+  writingRequest = request
   try {
     await writeAnswer(answer, canWrite)
     if (!canWrite()) return
@@ -235,7 +238,7 @@ async function applyAnswer(answer, request) {
       lastSelectedText = selectedText
     }
   } finally {
-    isWriting = false
+    if (writingRequest === request) writingRequest = null
   }
 }
 
@@ -248,7 +251,7 @@ async function addSlide({ title, bullets }, request) {
     bullets.every(bullet => typeof bullet === 'string')
   if (!isPresentation() || !isSlide || !hostOrigin) return
 
-  isWriting = true
+  writingRequest = request
   try {
     await runInEditor(insertSlide, {
       scope: { title, bullets },
@@ -258,7 +261,7 @@ async function addSlide({ title, bullets }, request) {
     // The paragraphs of the last answer are on another slide now
     written = null
   } finally {
-    isWriting = false
+    if (writingRequest === request) writingRequest = null
   }
 }
 
@@ -279,7 +282,7 @@ async function handleMessage(event) {
     clearTimeout(selectionTimer)
   }
   // Writes require an open, current panel, not merely a trusted WindowProxy.
-  if (hostOrigin !== event.origin || isWriting) return
+  if (hostOrigin !== event.origin || writingRequest === contentRequest) return
   if (
     event.data?.type === 'twake-scribe:applyAnswer' &&
     typeof event.data.text === 'string'
