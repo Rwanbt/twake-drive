@@ -12,12 +12,15 @@ configuration is absent. It no longer learns trust from incoming messages.
 Run without external network access, browser or npm dependencies:
 
 ```sh
-node --test plugins/onlyoffice-scribe/scripts/host-messages.test.mjs
+node --test plugins/onlyoffice-scribe/scripts/host-messages.test.mjs plugins/onlyoffice-scribe/scripts/host-message-lifecycle.test.mjs
 ```
 
 The suite covers exact source+origin, changed scheme, lookalike domain,
 missing/null origin, forged frame, and the real Scribe listener's document
-read/write path with a stubbed editor API. It is a required step in
+read/write path with a stubbed editor API. A separate RED→GREEN lifecycle
+suite demonstrates that initially unopened panels, closed panels and
+in-flight replacements cannot write stale content. Valid open-panel writes
+remain functional. Both suites are required steps in
 `.github/workflows/ci-cd.yml`.
 
 Passing these deterministic boundary tests is **not** proof of a safe

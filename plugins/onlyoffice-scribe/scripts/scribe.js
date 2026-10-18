@@ -39,14 +39,21 @@ let contentRequest = 0
 // one would never end. They run one after the other.
 let lastCommand = Promise.resolve()
 
-function runInEditor(command, { scope = {}, isRecalculated = false } = {}) {
+function runInEditor(
+  command,
+  { scope = {}, isRecalculated = false, canRun = null } = {}
+) {
   const run = lastCommand.then(
-    () =>
-      new Promise(resolve => {
+    () => {
+      // A command can wait behind another editor command. The panel may have
+      // closed or started another request while it was in that queue.
+      if (canRun && !canRun()) return null
+      return new Promise(resolve => {
         // The scope goes with the command when it is sent
         Object.assign(window.Asc.scope, scope)
         window.Asc.plugin.callCommand(command, false, isRecalculated, resolve)
       })
+    }
   )
   lastCommand = run
   return run
@@ -73,23 +80,27 @@ async function readPresentation() {
   return runInEditor(readSlideContent, { scope: { selectedText } })
 }
 
-async function writePresentation(text, isReplace) {
+async function writePresentation(text, isReplace, canWrite) {
   // A line of the answer is a paragraph of the slide
   const blocks = makeBlocks(text, { hasLineBreaks: true })
   const lineSpans = makeLineSpans(blocks)
   if (lineSpans.length === 0) return
 
   const selectedText = await fetchSelectedText()
+  if (!canWrite()) return
   const result = await runInEditor(writeSlideLines, {
     scope: { lineSpans, isReplace, selectedText, written },
-    isRecalculated: true
+    isRecalculated: true,
+    canRun: canWrite
   })
-  if (result?.isInline) {
+  if (result?.isInline && canWrite()) {
     // The editor writes plain text, in the look of the text around it
     const lines = makeLines(blocks)
     await callEditor('ReplaceTextSmart', [lines])
+    if (!canWrite()) return
     written = await runInEditor(findWrittenParagraphs, {
-      scope: { count: lines.length }
+      scope: { count: lines.length },
+      canRun: canWrite
     })
     return
   }
@@ -174,14 +185,15 @@ function watchUndoRedo() {
   }
 }
 
-async function writeAnswer({ answerAction, text }) {
+async function writeAnswer({ answerAction, text }, canWrite) {
   // A text that holds what an answer cannot give back, as an image or a
   // note, is never replaced, even when the app asks: the answer goes under
   // it, as when the editor was too busy to read the selection
   const read = answerAction === 'replace' ? await fetchContent() : null
+  if (!canWrite()) return
   const isReplace = Boolean(read) && read.canReplace !== false
   if (isPresentation()) {
-    await writePresentation(text, isReplace)
+    await writePresentation(text, isReplace, canWrite)
     return
   }
   const blocks = makeBlocks(text)
@@ -189,14 +201,17 @@ async function writeAnswer({ answerAction, text }) {
 
   await runInEditor(writeBlocks, {
     scope: { blocks, isReplace },
-    isRecalculated: true
+    isRecalculated: true,
+    canRun: canWrite
   })
 }
 
-async function applyAnswer(answer) {
+async function applyAnswer(answer, request) {
+  const canWrite = () => hostOrigin !== null && request === contentRequest
   isWriting = true
   try {
-    await writeAnswer(answer)
+    await writeAnswer(answer, canWrite)
+    if (!canWrite()) return
     // The answer is left selected: it is not another text to work on
     const selectedText = await fetchSelectedText()
     if (selectedText?.trim()) {
@@ -210,18 +225,19 @@ async function applyAnswer(answer) {
 
 // A slide the assistant has made, added after the current one. The app has
 // checked it already: this only keeps a wrong message out of the editor.
-async function addSlide({ title, bullets }) {
+async function addSlide({ title, bullets }, request) {
   const isSlide =
     typeof title === 'string' &&
     Array.isArray(bullets) &&
     bullets.every(bullet => typeof bullet === 'string')
-  if (!isPresentation() || !isSlide) return
+  if (!isPresentation() || !isSlide || !hostOrigin) return
 
   isWriting = true
   try {
     await runInEditor(insertSlide, {
       scope: { title, bullets },
-      isRecalculated: true
+      isRecalculated: true,
+      canRun: () => hostOrigin !== null && request === contentRequest
     })
     // The paragraphs of the last answer are on another slide now
     written = null
@@ -246,11 +262,14 @@ async function handleMessage(event) {
     written = null
     clearTimeout(selectionTimer)
   }
-  if (event.data?.type === 'twake-scribe:applyAnswer') {
-    await applyAnswer(event.data)
+  // Writes require an open, current panel, not merely a trusted WindowProxy.
+  if (hostOrigin !== event.origin || isWriting) return
+  if (event.data?.type === 'twake-scribe:applyAnswer' &&
+      typeof event.data.text === 'string') {
+    await applyAnswer(event.data, contentRequest)
   }
   if (event.data?.type === 'twake-scribe:insertSlide') {
-    await addSlide(event.data)
+    await addSlide(event.data, contentRequest)
   }
 }
 
