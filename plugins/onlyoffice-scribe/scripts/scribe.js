@@ -43,18 +43,16 @@ function runInEditor(
   command,
   { scope = {}, isRecalculated = false, canRun = null } = {}
 ) {
-  const run = lastCommand.then(
-    () => {
-      // A command can wait behind another editor command. The panel may have
-      // closed or started another request while it was in that queue.
-      if (canRun && !canRun()) return null
-      return new Promise(resolve => {
-        // The scope goes with the command when it is sent
-        Object.assign(window.Asc.scope, scope)
-        window.Asc.plugin.callCommand(command, false, isRecalculated, resolve)
-      })
-    }
-  )
+  const run = lastCommand.then(() => {
+    // A command can wait behind another editor command. The panel may have
+    // closed or started another request while it was in that queue.
+    if (canRun && !canRun()) return null
+    return new Promise(resolve => {
+      // The scope goes with the command when it is sent
+      Object.assign(window.Asc.scope, scope)
+      window.Asc.plugin.callCommand(command, false, isRecalculated, resolve)
+    })
+  })
   lastCommand = run
   return run
 }
@@ -264,8 +262,10 @@ async function handleMessage(event) {
   }
   // Writes require an open, current panel, not merely a trusted WindowProxy.
   if (hostOrigin !== event.origin || isWriting) return
-  if (event.data?.type === 'twake-scribe:applyAnswer' &&
-      typeof event.data.text === 'string') {
+  if (
+    event.data?.type === 'twake-scribe:applyAnswer' &&
+    typeof event.data.text === 'string'
+  ) {
     await applyAnswer(event.data, contentRequest)
   }
   if (event.data?.type === 'twake-scribe:insertSlide') {
