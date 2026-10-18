@@ -5,7 +5,7 @@
 import { cpSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { scribeScriptFiles } from './build-files.mjs'
+import { assertScribePackage, scribeScriptFiles } from './build-files.mjs'
 
 const source = dirname(fileURLToPath(import.meta.url))
 const output = join(source, 'build')
@@ -26,3 +26,4 @@ cpSync(
   fileURLToPath(import.meta.resolve('marked')),
   join(output, 'vendor', 'marked.esm.js')
 )
+assertScribePackage(output)

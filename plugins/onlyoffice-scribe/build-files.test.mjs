@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
-import { scribeScriptFiles } from './build-files.mjs'
+import { tmpdir } from 'node:os'
+import { assertScribePackage, scribeScriptFiles } from './build-files.mjs'
 
 const source = dirname(fileURLToPath(import.meta.url))
 const scripts = join(source, 'scripts')
@@ -38,4 +39,49 @@ test('the actual packager calls the reviewed runtime inventory', () => {
   const builder = readFileSync(join(source, 'build.mjs'), 'utf8')
   assert.match(builder, /scribeScriptFiles\(join\(source, 'scripts'\)\)/)
   assert.doesNotMatch(builder, /name\.endsWith\('\.js'\)/)
+  assert.match(builder, /assertScribePackage\(output\)/)
+})
+
+function packagedFixture(run) {
+  const output = mkdtempSync(join(tmpdir(), 'twake-scribe-packaging-'))
+  const packagedScripts = join(output, 'scripts')
+  try {
+    mkdirSync(packagedScripts)
+    for (const file of scribeScriptFiles(scripts)) {
+      cpSync(join(scripts, file), join(packagedScripts, file))
+    }
+    cpSync(join(source, 'index.html'), join(output, 'index.html'))
+    return run({ output, packagedScripts })
+  } finally {
+    rmSync(output, { recursive: true, force: true })
+  }
+}
+
+test('distributed output accepts complete entrypoint and import graph', () => {
+  packagedFixture(({ output }) => {
+    const files = assertScribePackage(output)
+    assert.ok(files.includes('scribe.js'))
+    assert.ok(files.includes('host-messages.mjs'))
+  })
+})
+
+test('distributed output fails closed when the host-security ESM dependency is absent', () => {
+  packagedFixture(({ output, packagedScripts }) => {
+    rmSync(join(packagedScripts, 'host-messages.mjs'))
+    assert.throws(() => assertScribePackage(output), /Missing Scribe runtime import/)
+  })
+})
+
+test('distributed output rejects accidental shipping of security-test source', () => {
+  packagedFixture(({ output, packagedScripts }) => {
+    writeFileSync(join(packagedScripts, 'private.test.mjs'), 'export {}')
+    assert.throws(() => assertScribePackage(output), /Test source shipped/)
+  })
+})
+
+test('distributed output refuses missing or non-module browser entrypoint', () => {
+  packagedFixture(({ output }) => {
+    writeFileSync(join(output, 'index.html'), '<script src="scripts/scribe.js"></script>')
+    assert.throws(() => assertScribePackage(output), /ESM entrypoint/)
+  })
 })

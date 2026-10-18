@@ -34,6 +34,19 @@ excludes test files. The standalone build-inventory tests validate every
 relative runtime import against the files selected for shipping.
 An actual GitHub browser E2E rerun is required for qualification.
 
+The packager now calls `assertScribePackage` after writing the actual
+deployment files. The validator checks the ESM entrypoint, all relative
+runtime imports, and absence of test source. Its four negative/positive
+packaged-artifact cases demonstrate fail-closed behavior if a required
+module is removed, a test source leaks, or the entrypoint is invalid.
+The CI build runs `yarn build:onlyoffice-scribe` as a required gate.
+
+Publishing credentials are never used on the fork, including its master
+or tags. The `fork-release-policy` tests ensure SSH deployment and
+`cozyPublish` can only run on the non-fork upstream. All **16** focused
+tests pass locally; complete Playwright Scribe integration and release
+qualification remain separate mandatory gates.
+
 Passing these deterministic boundary tests is **not** proof of a safe
 OnlyOffice deployment. Full Jest/Playwright/OnlyOffice integration, browser
 CSP, document permissions, cross-window initialization, and build output
