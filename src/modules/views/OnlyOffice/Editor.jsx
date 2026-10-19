@@ -51,6 +51,7 @@ export const Editor = () => {
   return (
     <ViewerProvider file={file} isPublic={isPublic} isReadOnly={isReadOnly}>
       <ScribeProvider
+        key={serverUrl}
         serverUrl={serverUrl}
         documentType={docEditorConfig.documentType}
       >

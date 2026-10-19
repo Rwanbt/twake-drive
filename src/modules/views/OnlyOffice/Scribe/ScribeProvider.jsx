@@ -3,6 +3,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from 'react'
 
@@ -14,6 +15,7 @@ import {
   normalizeSlide,
   normalizeTable
 } from '@/modules/views/OnlyOffice/Scribe/capabilities'
+import { FRAME_EDITOR_NAME } from '@/modules/views/OnlyOffice/config'
 
 const ScribeContext = createContext({ isAvailable: false, isOpen: false })
 
@@ -27,14 +29,30 @@ export const ScribeProvider = ({ serverUrl, documentType, children }) => {
   const serverOrigin = new URL(serverUrl).origin
   const [plugin, setPlugin] = useState(null)
   const [text, setText] = useState(null)
+  const pluginSource = useRef(null)
 
   useEffect(() => {
     const handleMessage = event => {
       if (event.origin !== serverOrigin) return
 
       const { type, content, target, canReplace } = event.data ?? {}
+      if (type === 'twake-scribe:ready') {
+        // The plugin is nested directly inside the Document Server editor.
+        // Another frame on the same origin must not impersonate that plugin.
+        const editor = document.getElementsByName(FRAME_EDITOR_NAME)[0]
+        if (
+          !editor?.contentWindow ||
+          event.source?.parent !== editor.contentWindow
+        )
+          return
+        pluginSource.current = event.source
+        setPlugin(event.source)
+        setText(null)
+        return
+      }
+
+      if (event.source !== pluginSource.current || !pluginSource.current) return
       const text = { content, target, canReplace }
-      if (type === 'twake-scribe:ready') setPlugin(event.source)
       if (type === 'twake-scribe:content') setText(text)
       if (type === 'twake-scribe:selection') {
         setText(current => (current === null ? null : text))
