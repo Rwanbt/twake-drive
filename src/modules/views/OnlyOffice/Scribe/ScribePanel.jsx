@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 
 import IntentIframe from 'cozy-ui-plus/dist/Intent/IntentIframe'
 import { useCozyTheme } from 'cozy-ui-plus/dist/providers/CozyTheme'
@@ -15,6 +15,7 @@ import {
 export const ScribePanel = () => {
   const { t } = useI18n()
   const { type: themeType } = useCozyTheme()
+  const panelRef = useRef(null)
   const {
     isOpen,
     content,
@@ -24,6 +25,25 @@ export const ScribePanel = () => {
     close,
     applyResult
   } = useScribe()
+
+  useEffect(() => {
+    if (!isOpen) return
+    const panel = panelRef.current
+    const previouslyFocused = document.activeElement
+    // The intent iframe loads asynchronously. Focus its landmark first so
+    // keyboard users can reach the assistant on the next Tab.
+    panel?.focus()
+
+    return () => {
+      if (
+        previouslyFocused?.isConnected &&
+        (panel?.contains(document.activeElement) ||
+          document.activeElement === document.body)
+      ) {
+        previouslyFocused.focus()
+      }
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -49,6 +69,8 @@ export const ScribePanel = () => {
 
   return (
     <aside
+      ref={panelRef}
+      tabIndex={-1}
       className={styles['scribe-panel']}
       aria-label={t('OnlyOffice.scribe.open')}
     >
