@@ -106,10 +106,9 @@ export const ScribeProvider = ({ serverUrl, documentType, children }) => {
     const callCapability = result => {
       const message = makeCapabilityMessage(result)
       if (message === null) {
-        logger.warn(
-          `Scribe: capability call ignored: ${result.capability}`,
-          result.params
-        )
+        // Both the capability identifier and parameters may be controlled by
+        // an assistant and can contain document content or credentials.
+        logger.warn('Scribe: unsupported or invalid capability ignored')
         return
       }
       plugin.postMessage(message, serverOrigin)

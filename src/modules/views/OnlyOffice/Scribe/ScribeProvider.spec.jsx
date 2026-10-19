@@ -403,6 +403,27 @@ describe('ScribeProvider', () => {
     expect(logger.warn).toHaveBeenCalledTimes(results.length)
   })
 
+  it('does not disclose rejected assistant capability parameters to logs', () => {
+    const confidential = 'confidential-document-content-example-1034'
+    const { receive, openPanel } = setup({
+      results: [
+        {
+          capability: 'unknown_' + confidential,
+          params: { documentText: confidential, accessToken: confidential }
+        }
+      ]
+    })
+    receive({ type: 'twake-scribe:ready' })
+    openPanel()
+
+    fireEvent.click(screen.getByText('result 0'))
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Scribe: unsupported or invalid capability ignored'
+    )
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(confidential)
+  })
+
   it('adds no slide to a text document', () => {
     const { plugin, receive, openPanel } = setup({ results: [SLIDE] })
     receive({ type: 'twake-scribe:ready' })
