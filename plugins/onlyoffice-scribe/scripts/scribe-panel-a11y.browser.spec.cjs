@@ -137,10 +137,15 @@ test('Scribe cancel from its iframe restores focus across tablet and mobile size
   })
 
   const assistant = page.frameLocator('iframe[title="Scribe assistant"]')
+  // The iframe document loads asynchronously. A keyboard Tab issued before
+  // its first input exists cannot be expected to focus that input.
+  await expect(assistant.getByRole('textbox')).toBeVisible()
   await page.keyboard.press('Tab')
   await expect(assistant.getByRole('textbox')).toBeFocused()
   await page.keyboard.press('Tab')
-  await expect(assistant.getByRole('button', { name: 'Close assistant' })).toBeFocused()
+  await expect(
+    assistant.getByRole('button', { name: 'Close assistant' })
+  ).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(panel).toHaveCount(0)
   await expect(launch).toBeFocused()
@@ -148,7 +153,12 @@ test('Scribe cancel from its iframe restores focus across tablet and mobile size
   await page.setViewportSize({ width: 320, height: 640 })
   await page.keyboard.press('Enter')
   await expect(panel).toBeFocused()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth)
+  ).toBeLessThanOrEqual(320)
+  // On reopen the iframe has a new document; wait for the focus target rather
+  // than relying on the incidental delay of the screenshot above.
+  await expect(assistant.getByRole('textbox')).toBeVisible()
   await page.keyboard.press('Tab')
   await expect(assistant.getByRole('textbox')).toBeFocused()
   await page.keyboard.press('Tab')
