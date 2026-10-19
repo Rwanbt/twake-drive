@@ -118,7 +118,7 @@ function fetchContent() {
 
 // The editor runs no command while it loads or saves: the text is then not
 // read, and the app asks again
-async function sendContent(origin) {
+async function sendContent(origin, requestId) {
   contentRequest += 1
   const request = contentRequest
   const read = await fetchContent()
@@ -128,7 +128,14 @@ async function sendContent(origin) {
   lastContent = read.content
   lastSelectedText = selectedText
 
-  host.postMessage({ type: 'twake-scribe:content', ...read }, origin)
+  host.postMessage(
+    {
+      type: 'twake-scribe:content',
+      ...read,
+      ...(Number.isSafeInteger(requestId) && { requestId })
+    },
+    origin
+  )
 }
 
 // Another text selected: the app gives it to the assistant if it is open.
@@ -279,7 +286,7 @@ async function handleMessage(event) {
   if (!isTrustedHostMessage(event, host, expectedHostOrigin)) return
 
   if (event.data?.type === 'twake-scribe:getContent') {
-    await sendContent(event.origin)
+    await sendContent(event.origin, event.data.requestId)
   }
   // The panel is closed: the selection is no more read, and the next panel
   // starts on the text then selected, not on the answer last written in a

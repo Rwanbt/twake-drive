@@ -97,7 +97,11 @@ test.beforeAll(async () => {
     response.end(`<!doctype html><script>
       window.scribeMessages = [];
       window.addEventListener('message', event => {
-        window.scribeMessages.push({ type: event.data?.type, origin: event.origin });
+        window.scribeMessages.push({
+          type: event.data?.type,
+          origin: event.origin,
+          requestId: event.data?.requestId
+        });
         if (event.data?.type === 'twake-scribe:ready') window.scribePlugin = event.source;
       });
     </script><iframe src="${editorOrigin}/editor?parentOrigin=${encodeURIComponent(
@@ -192,11 +196,12 @@ test("real Chromium origin/source boundary and reopen permit a new write before 
   expect(await messagesOfType("twake-scribe:content")).toBe(0);
   expect(await writes()).toBe(0);
 
-  await send("twake-scribe:getContent");
+  await send("twake-scribe:getContent", { requestId: 41 });
   await expect.poll(() => messagesOfType("twake-scribe:content")).toBe(1);
   expect(await page.evaluate(() => window.scribeMessages[1].origin)).toBe(
     editorOrigin
   );
+  expect(await page.evaluate(() => window.scribeMessages[1].requestId)).toBe(41);
 
   await pluginFrame.evaluate(() => {
     window.mockEditor.holdSelection = true;
@@ -213,8 +218,16 @@ test("real Chromium origin/source boundary and reopen permit a new write before 
   expect(await writes()).toBe(1);
 
   await send("twake-scribe:close");
-  await send("twake-scribe:getContent");
+  await send("twake-scribe:getContent", { requestId: 42 });
   await expect.poll(() => messagesOfType("twake-scribe:content")).toBe(2);
+  expect(
+    await page.evaluate(
+      () =>
+        window.scribeMessages.filter(
+          (message) => message.type === "twake-scribe:content"
+        )[1].requestId
+    )
+  ).toBe(42);
   await pluginFrame.evaluate(() => {
     window.mockEditor.holdSelection = true;
   });

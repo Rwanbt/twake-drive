@@ -116,6 +116,20 @@ test('same-origin sibling window cannot revive closed Scribe or read after reope
   assert.equal(app.sent.filter(({ message }) => message.type === 'twake-scribe:content').length, 2)
 })
 
+test('content responses retain their open request identity across panel sessions', async () => {
+  const app = harness()
+  await app.emit('twake-scribe:getContent', { requestId: 41 })
+  await app.emit('twake-scribe:close')
+  await app.emit('twake-scribe:getContent', { requestId: 42 })
+  assert.deepEqual(
+    app.sent
+      .filter(({ message }) => message.type === 'twake-scribe:content')
+      .map(({ message }) => message.requestId),
+    [41, 42],
+    'the host can reject an earlier request after closing and reopening'
+  )
+})
+
 test('a closed presentation write cannot repopulate the reopened panel state', async () => {
   const app = harness()
   app.setEditorType('slide')
