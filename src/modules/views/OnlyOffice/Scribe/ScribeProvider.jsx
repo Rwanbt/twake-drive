@@ -73,7 +73,27 @@ export const ScribeProvider = ({ serverUrl, documentType, children }) => {
     }
 
     window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
+    return () => {
+      window.removeEventListener('message', handleMessage)
+      // Changing Document Server invalidates the old plugin and the text it
+      // returned. Never display the previous document in the new editor, nor
+      // keep polling its selection in a detached assistant panel.
+      if (activePanelRequest.current !== null && pluginSource.current) {
+        try {
+          pluginSource.current.postMessage(
+            { type: 'twake-scribe:close' },
+            serverOrigin
+          )
+        } catch {
+          // The old editor frame can already be destroyed.
+        }
+      }
+      pluginSource.current = null
+      pendingContentRequest.current = null
+      activePanelRequest.current = null
+      setPlugin(null)
+      setText(null)
+    }
   }, [serverOrigin])
 
   const value = useMemo(() => {

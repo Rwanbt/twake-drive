@@ -104,7 +104,7 @@ const setup = ({ documentType = 'word', results } = {}) => {
     plugin.postMessage.mockClear()
   }
 
-  render(
+  const renderResult = render(
     <ScribeProvider serverUrl={SERVER_URL} documentType={documentType}>
       <ScribeState
         results={results}
@@ -124,6 +124,17 @@ const setup = ({ documentType = 'word', results } = {}) => {
     openPanel,
     openRequestId,
     getState,
+    changeServer: serverUrl =>
+      renderResult.rerender(
+        <ScribeProvider serverUrl={serverUrl} documentType={documentType}>
+          <ScribeState
+            results={results}
+            capture={value => {
+              callbacks = value
+            }}
+          />
+        </ScribeProvider>
+      ),
     getCallbacks: () => callbacks
   }
 }
@@ -145,6 +156,22 @@ describe('ScribeProvider', () => {
     receive({ type: 'twake-scribe:ready' })
 
     expect(getState()).toEqual({ isAvailable: true, isOpen: false })
+  })
+
+  it('drops the previous document and plugin when the Document Server origin changes', () => {
+    const { plugin, receive, openPanel, getState, changeServer } = setup()
+    receive({ type: 'twake-scribe:ready' })
+    openPanel()
+    expect(getState().content).toBe('editor document')
+
+    changeServer('https://other-office.example.org/')
+    expect(getState()).toEqual({ isAvailable: false, isOpen: false })
+    expect(plugin.postMessage).toHaveBeenCalledWith(
+      { type: 'twake-scribe:close' },
+      SERVER_ORIGIN
+    )
+    receive({ type: 'twake-scribe:ready' })
+    expect(getState().isAvailable).toBe(false)
   })
 
   it('ignores the messages that do not come from the Document Server', () => {
