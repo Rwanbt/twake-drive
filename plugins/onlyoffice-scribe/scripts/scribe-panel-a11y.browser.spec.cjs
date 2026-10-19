@@ -118,3 +118,41 @@ test('Scribe keyboard focus follows the assistant and returns to launcher at 320
     await page.evaluate(() => document.documentElement.scrollWidth)
   ).toBeLessThanOrEqual(320)
 })
+
+test('Scribe cancel from its iframe restores focus across tablet and mobile sizes', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 768, height: 1024 })
+  await page.goto(origin)
+  const launch = page.getByRole('button', { name: 'Toggle assistant' })
+  await launch.focus()
+  await page.keyboard.press('Enter')
+  const panel = page.getByRole('complementary', {
+    name: 'OnlyOffice.scribe.open'
+  })
+  await expect(panel).toBeFocused()
+  await page.screenshot({
+    path: testInfo.outputPath('scribe-open-tablet-768.png'),
+    fullPage: true
+  })
+
+  const assistant = page.frameLocator('iframe[title="Scribe assistant"]')
+  await page.keyboard.press('Tab')
+  await expect(assistant.getByRole('textbox')).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(assistant.getByRole('button', { name: 'Close assistant' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(panel).toHaveCount(0)
+  await expect(launch).toBeFocused()
+
+  await page.setViewportSize({ width: 320, height: 640 })
+  await page.keyboard.press('Enter')
+  await expect(panel).toBeFocused()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+  await page.keyboard.press('Tab')
+  await expect(assistant.getByRole('textbox')).toBeFocused()
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Enter')
+  await expect(panel).toHaveCount(0)
+  await expect(launch).toBeFocused()
+})
