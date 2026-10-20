@@ -3,18 +3,19 @@ import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 
 import { useSharedDriveLink } from './useSharedDriveLink'
+
 import { ROUTER_FUTURE_FLAGS } from '@/constants/config'
 
 jest.mock('cozy-client', () => ({
   ...jest.requireActual('cozy-client'),
   useClient: jest.fn(() => ({
-    getStackClient: () => ({ uri: 'https://cozy.localhost' }),
-    getInstanceOptions: () => ({ subdomain: 'nested' })
+    getStackClient: (): { uri: string } => ({ uri: 'https://cozy.localhost' }),
+    getInstanceOptions: (): { subdomain: string } => ({ subdomain: 'nested' })
   }))
 }))
 
 jest.mock('@/modules/shareddrives/helpers', () => ({
-  getFolderIdFromSharing: () => 'folder-123'
+  getFolderIdFromSharing: (): string => 'folder-123'
 }))
 
 it('opens a modifier-click shared-drive link without granting window.opener', () => {
