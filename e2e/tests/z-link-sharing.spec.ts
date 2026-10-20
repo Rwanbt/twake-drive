@@ -152,6 +152,15 @@ test.describe('Share by link', () => {
     await withAnonymousPage(browser, async pub => {
       await pub.goto(url)
       const publicPage = new PublicLinkPage(pub)
+      // An incorrect password must not mount any shared content in the same
+      // unauthenticated browser before the legitimate password is provided.
+      await publicPage.enterPassword('deliberately-wrong-password')
+      await expect(publicPage.passwordInput).toBeVisible({ timeout: 15_000 })
+      await expect(publicPage.fileList).toHaveCount(0)
+      await test.info().attach('public-link-denied-incorrect-password.png', {
+        body: await pub.screenshot({ animations: 'disabled' }),
+        contentType: 'image/png'
+      })
       await publicPage.enterPassword(password)
       await expect(publicPage.fileList).toBeVisible({ timeout: 15_000 })
     })

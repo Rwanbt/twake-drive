@@ -2,15 +2,14 @@
 // Markdown reader it imports.
 // Usage: yarn build:onlyoffice-scribe, then copy plugins/onlyoffice-scribe/build
 // to the sdkjs-plugins folder of the Document Server.
-import { cpSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, mkdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertScribePackage, scribeScriptFiles } from './build-files.mjs'
 
 const source = dirname(fileURLToPath(import.meta.url))
 const output = join(source, 'build')
-const scripts = readdirSync(join(source, 'scripts')).filter(
-  name => name.endsWith('.js') && !name.endsWith('.spec.js')
-)
+const scripts = scribeScriptFiles(join(source, 'scripts'))
 
 // The folder itself is kept: a Document Server may have it mounted
 for (const name of ['scripts', 'vendor']) {
@@ -27,3 +26,4 @@ cpSync(
   fileURLToPath(import.meta.resolve('marked')),
   join(output, 'vendor', 'marked.esm.js')
 )
+assertScribePackage(output)

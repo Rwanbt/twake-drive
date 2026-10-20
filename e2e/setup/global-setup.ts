@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process'
-import { pbkdf2Sync } from 'crypto'
+import { createHmac, pbkdf2Sync, randomBytes } from 'crypto'
 
 import type { FullConfig } from '@playwright/test'
 
@@ -93,10 +93,87 @@ async function verifyOfficeNetwork(
   portsConfig: E2EPortsConfig,
   users: User[]
 ): Promise<void> {
+  if (process.env.COZY_E2E_ONLYOFFICE_JWT_ENABLED === 'true') {
+    // Fail the real JWT E2E gate if DocumentServer silently starts with JWT
+    // disabled or with a different signing key. Report only which assertions
+    // fail: never log keys, encoded tokens or the raw DocumentServer config.
+    // The DocumentServer image exposes Python 3 for our network probes;
+    // unlike `node`, it is available in its root image execution PATH.
+    const validateJwtConfig = `
+import json
+import os
+import sys
+with open('/etc/onlyoffice/documentserver/local.json', encoding='utf-8') as source:
+    conf = json.load(source).get('services', {}).get('CoAuthoring', {})
+enabled = conf.get('token', {}).get('enable', {})
+secret = os.environ.get('JWT_SECRET', '')
+configured = conf.get('secret', {})
+checks = {
+    'env': bool(secret),
+    'browser': enabled.get('browser') is True,
+    'inbox': enabled.get('request', {}).get('inbox') is True,
+    'outbox': enabled.get('request', {}).get('outbox') is True,
+    'inboxKey': bool(secret) and configured.get('inbox', {}).get('string') == secret,
+    'outboxKey': bool(secret) and configured.get('outbox', {}).get('string') == secret,
+    'sessionKey': bool(secret) and configured.get('session', {}).get('string') == secret
+}
+failed = [name for name, ok in checks.items() if not ok]
+if failed:
+    sys.stderr.write('JWT_ASSERTIONS_FAILED:' + ','.join(failed) + '\\n')
+    sys.exit(1)
+    `
+    try {
+      execFileSync('docker', composeArgs('exec', '-T', 'onlyoffice', 'python3', '-c', validateJwtConfig), {
+        cwd: process.cwd(),
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+    } catch (error) {
+      const stderr = String((error as { stderr?: Buffer | string }).stderr || '')
+      const failed = stderr.match(/JWT_ASSERTIONS_FAILED:([a-zA-Z,]+)/)?.[1]
+      throw new Error(
+        failed
+          ? `OnlyOffice JWT mode mismatch (failed: ${failed})`
+          : 'OnlyOffice JWT configuration inspection could not run'
+      )
+    }
+  }
   const officeUrl = `http://onlyoffice.${portsConfig.rootDomain}:${portsConfig.onlyofficePort}`
   const apiResponse = await fetch(`${officeUrl}/web-apps/apps/api/documents/api.js`)
   if (!apiResponse.ok) {
     throw new Error(`OnlyOffice browser API unavailable (${apiResponse.status})`)
+  }
+
+  if (process.env.COZY_E2E_ONLYOFFICE_JWT_ENABLED === 'true') {
+    // Exercise the actual DocumentServer command endpoint, not just a JSON
+    // setting. Unsigned and incorrectly signed requests must be rejected;
+    // a correctly signed disposable request must be accepted.
+    const secret = process.env.COZY_E2E_ONLYOFFICE_JWT_SECRET
+    if (!secret) throw new Error('Missing disposable DocumentServer JWT key')
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+    const payload = Buffer.from(JSON.stringify({ c: 'version' })).toString('base64url')
+    const unsigned = `${header}.${payload}`
+    const signature = createHmac('sha256', secret).update(unsigned).digest('base64url')
+    const token = `${unsigned}.${signature}`
+    const commandError = async (body: Record<string, string>): Promise<number> => {
+      const response = await fetch(`${officeUrl}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      if (!response.ok) {
+        throw new Error(`OnlyOffice command endpoint unavailable (${response.status})`)
+      }
+      const result = (await response.json()) as { error?: number }
+      return result.error ?? -1
+    }
+    const unsignedResult = await commandError({ c: 'version' })
+    const forgedResult = await commandError({ token: `${unsigned}.${'0'.repeat(43)}` })
+    const signedResult = await commandError({ token })
+    if (unsignedResult !== 6 || forgedResult !== 6 || signedResult !== 0) {
+      throw new Error(
+        `OnlyOffice JWT command contract failed: unsigned=${unsignedResult} forged=${forgedResult} signed=${signedResult}`
+      )
+    }
   }
 
   for (const user of users) {
@@ -286,6 +363,12 @@ export async function setupStack(
   portsConfig: E2EPortsConfig,
   workers = 1
 ): Promise<void> {
+  // Both Cozy and OnlyOffice must share this ephemeral secret. A fresh
+  // value is created per isolated E2E run, never a user or production key.
+  if (process.env.COZY_E2E_ONLYOFFICE_JWT_ENABLED === 'true') {
+    process.env.COZY_E2E_ONLYOFFICE_JWT_SECRET =
+      process.env.COZY_E2E_ONLYOFFICE_JWT_SECRET || randomBytes(32).toString('hex')
+  }
   process.env.E2E_PROJECT_NAME = portsConfig.projectName
   process.env.COZY_E2E_ROOT_DOMAIN = portsConfig.rootDomain
   process.env.COZY_E2E_STACK_PORT = String(portsConfig.stackPort)

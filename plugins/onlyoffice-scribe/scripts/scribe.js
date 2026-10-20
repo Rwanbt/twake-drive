@@ -1,4 +1,5 @@
 import { readContent, writeBlocks } from './document.js'
+import { isTrustedHostMessage } from './host-messages.js'
 import { makeBlocks, makeLineSpans, makeLines } from './markdown.js'
 import {
   findWrittenParagraphs,
@@ -20,11 +21,16 @@ const UNDO_REDO_PAUSE = 3000
 let written = null
 // The origin of the app while its panel is open: it has asked for the text
 let hostOrigin = null
+// Stable origin granted by the editor frame, not learned from incoming traffic.
+let expectedHostOrigin = null
 // The text last given to the app, its plain text, and whether an answer is
 // being written
 let lastContent = null
 let lastSelectedText = null
-let isWriting = false
+// An editor result may still be awaiting GetSelectedText after its panel is
+// closed. Only a write from the current panel may block new writes/selection;
+// a stale result must neither lock a reopened panel nor release its lock.
+let writingRequest = null
 let selectionTimer = null
 let pausedUntil = 0
 let isStarted = false
@@ -36,16 +42,24 @@ let contentRequest = 0
 // one would never end. They run one after the other.
 let lastCommand = Promise.resolve()
 
-function runInEditor(command, { scope = {}, isRecalculated = false } = {}) {
-  const run = lastCommand.then(
-    () =>
-      new Promise(resolve => {
-        // The scope goes with the command when it is sent
-        Object.assign(window.Asc.scope, scope)
-        window.Asc.plugin.callCommand(command, false, isRecalculated, resolve)
-      })
-  )
-  lastCommand = run
+function runInEditor(
+  command,
+  { scope = {}, isRecalculated = false, canRun = null } = {}
+) {
+  const run = lastCommand.then(() => {
+    // A command can wait behind another editor command. The panel may have
+    // closed or started another request while it was in that queue.
+    if (canRun && !canRun()) return null
+    return new Promise(resolve => {
+      // The scope goes with the command when it is sent
+      Object.assign(window.Asc.scope, scope)
+      window.Asc.plugin.callCommand(command, false, isRecalculated, resolve)
+    })
+  })
+  // An editor command may throw after OnlyOffice destroys/recreates its
+  // plugin instance. Reject that request, but do not poison the serialized
+  // queue forever: a later authorized panel must be able to retry.
+  lastCommand = run.catch(() => null)
   return run
 }
 
@@ -70,27 +84,32 @@ async function readPresentation() {
   return runInEditor(readSlideContent, { scope: { selectedText } })
 }
 
-async function writePresentation(text, isReplace) {
+async function writePresentation(text, isReplace, canWrite) {
   // A line of the answer is a paragraph of the slide
   const blocks = makeBlocks(text, { hasLineBreaks: true })
   const lineSpans = makeLineSpans(blocks)
   if (lineSpans.length === 0) return
 
   const selectedText = await fetchSelectedText()
+  if (!canWrite()) return
   const result = await runInEditor(writeSlideLines, {
     scope: { lineSpans, isReplace, selectedText, written },
-    isRecalculated: true
+    isRecalculated: true,
+    canRun: canWrite
   })
-  if (result?.isInline) {
+  if (result?.isInline && canWrite()) {
     // The editor writes plain text, in the look of the text around it
     const lines = makeLines(blocks)
     await callEditor('ReplaceTextSmart', [lines])
-    written = await runInEditor(findWrittenParagraphs, {
-      scope: { count: lines.length }
+    if (!canWrite()) return
+    const nextWritten = await runInEditor(findWrittenParagraphs, {
+      scope: { count: lines.length },
+      canRun: canWrite
     })
+    if (canWrite()) written = nextWritten
     return
   }
-  written = result
+  if (canWrite()) written = result
 }
 
 function fetchContent() {
@@ -99,7 +118,7 @@ function fetchContent() {
 
 // The editor runs no command while it loads or saves: the text is then not
 // read, and the app asks again
-async function sendContent(origin) {
+async function sendContent(origin, requestId) {
   contentRequest += 1
   const request = contentRequest
   const read = await fetchContent()
@@ -109,7 +128,14 @@ async function sendContent(origin) {
   lastContent = read.content
   lastSelectedText = selectedText
 
-  host.postMessage({ type: 'twake-scribe:content', ...read }, origin)
+  host.postMessage(
+    {
+      type: 'twake-scribe:content',
+      ...read,
+      ...(Number.isSafeInteger(requestId) && { requestId })
+    },
+    origin
+  )
 }
 
 // Another text selected: the app gives it to the assistant if it is open.
@@ -118,14 +144,34 @@ async function sendContent(origin) {
 // The selection is read by a command only when its text changes: a command
 // empties the redo of the editor.
 async function sendSelection() {
-  if (!hostOrigin || isWriting || Date.now() < pausedUntil) return
+  if (
+    !hostOrigin ||
+    writingRequest === contentRequest ||
+    Date.now() < pausedUntil
+  )
+    return
+  // A close/reopen may retain the same host origin. Keep the request epoch too,
+  // otherwise a delayed selection from the previous panel can reach the new one.
+  const request = contentRequest
+  const origin = hostOrigin
   const selectedText = await fetchSelectedText()
   // The panel may have been closed while the selection was read
-  if (!hostOrigin || !selectedText?.trim()) return
+  if (
+    request !== contentRequest ||
+    hostOrigin !== origin ||
+    !selectedText?.trim()
+  )
+    return
   if (selectedText === lastSelectedText) return
 
   const { content, target, canReplace } = (await fetchContent()) ?? {}
-  if (!hostOrigin || target !== 'selection' || content === lastContent) return
+  if (
+    request !== contentRequest ||
+    hostOrigin !== origin ||
+    target !== 'selection' ||
+    content === lastContent
+  )
+    return
   lastContent = content
   lastSelectedText = selectedText
   // The answer last written in a presentation is no more the selection
@@ -133,7 +179,7 @@ async function sendSelection() {
 
   host.postMessage(
     { type: 'twake-scribe:selection', content, target, canReplace },
-    hostOrigin
+    origin
   )
 }
 
@@ -171,14 +217,15 @@ function watchUndoRedo() {
   }
 }
 
-async function writeAnswer({ answerAction, text }) {
+async function writeAnswer({ answerAction, text }, canWrite) {
   // A text that holds what an answer cannot give back, as an image or a
   // note, is never replaced, even when the app asks: the answer goes under
   // it, as when the editor was too busy to read the selection
   const read = answerAction === 'replace' ? await fetchContent() : null
+  if (!canWrite()) return
   const isReplace = Boolean(read) && read.canReplace !== false
   if (isPresentation()) {
-    await writePresentation(text, isReplace)
+    await writePresentation(text, isReplace, canWrite)
     return
   }
   const blocks = makeBlocks(text)
@@ -186,53 +233,60 @@ async function writeAnswer({ answerAction, text }) {
 
   await runInEditor(writeBlocks, {
     scope: { blocks, isReplace },
-    isRecalculated: true
+    isRecalculated: true,
+    canRun: canWrite
   })
 }
 
-async function applyAnswer(answer) {
-  isWriting = true
+async function applyAnswer(answer, request) {
+  const canWrite = () => hostOrigin !== null && request === contentRequest
+  writingRequest = request
   try {
-    await writeAnswer(answer)
+    await writeAnswer(answer, canWrite)
+    if (!canWrite()) return
     // The answer is left selected: it is not another text to work on
     const selectedText = await fetchSelectedText()
+    if (!canWrite()) return
     if (selectedText?.trim()) {
-      lastContent = (await fetchContent())?.content ?? lastContent
+      const refreshed = await fetchContent()
+      if (!canWrite()) return
+      lastContent = refreshed?.content ?? lastContent
       lastSelectedText = selectedText
     }
   } finally {
-    isWriting = false
+    if (writingRequest === request) writingRequest = null
   }
 }
 
 // A slide the assistant has made, added after the current one. The app has
 // checked it already: this only keeps a wrong message out of the editor.
-async function addSlide({ title, bullets }) {
+async function addSlide({ title, bullets }, request) {
   const isSlide =
     typeof title === 'string' &&
     Array.isArray(bullets) &&
     bullets.every(bullet => typeof bullet === 'string')
-  if (!isPresentation() || !isSlide) return
+  if (!isPresentation() || !isSlide || !hostOrigin) return
 
-  isWriting = true
+  writingRequest = request
   try {
     await runInEditor(insertSlide, {
       scope: { title, bullets },
-      isRecalculated: true
+      isRecalculated: true,
+      canRun: () => hostOrigin !== null && request === contentRequest
     })
     // The paragraphs of the last answer are on another slide now
-    written = null
+    if (hostOrigin !== null && request === contentRequest) written = null
   } finally {
-    isWriting = false
+    if (writingRequest === request) writingRequest = null
   }
 }
 
 async function handleMessage(event) {
-  // Only the app that shows the editor may read and write the document
-  if (event.source !== host) return
+  // A navigated host window has the same WindowProxy but a different origin.
+  if (!isTrustedHostMessage(event, host, expectedHostOrigin)) return
 
   if (event.data?.type === 'twake-scribe:getContent') {
-    await sendContent(event.origin)
+    await sendContent(event.origin, event.data.requestId)
   }
   // The panel is closed: the selection is no more read, and the next panel
   // starts on the text then selected, not on the answer last written in a
@@ -243,11 +297,16 @@ async function handleMessage(event) {
     written = null
     clearTimeout(selectionTimer)
   }
-  if (event.data?.type === 'twake-scribe:applyAnswer') {
-    await applyAnswer(event.data)
+  // Writes require an open, current panel, not merely a trusted WindowProxy.
+  if (hostOrigin !== event.origin || writingRequest === contentRequest) return
+  if (
+    event.data?.type === 'twake-scribe:applyAnswer' &&
+    typeof event.data.text === 'string'
+  ) {
+    await applyAnswer(event.data, contentRequest)
   }
   if (event.data?.type === 'twake-scribe:insertSlide') {
-    await addSlide(event.data)
+    await addSlide(event.data, contentRequest)
   }
 }
 
@@ -272,9 +331,10 @@ window.Asc.plugin.init = () => {
     return
   }
   isStarted = true
+  expectedHostOrigin = findHostOrigin()
+  // Without an independently supplied origin, no listener may accept writes.
+  if (!expectedHostOrigin) return
   window.addEventListener('message', handleMessage)
   watchUndoRedo()
-  // Without the origin of the app, the plugin stays silent: no AI button
-  const origin = findHostOrigin()
-  if (origin) host.postMessage({ type: 'twake-scribe:ready' }, origin)
+  host.postMessage({ type: 'twake-scribe:ready' }, expectedHostOrigin)
 }
