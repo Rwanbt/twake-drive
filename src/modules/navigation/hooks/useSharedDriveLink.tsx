@@ -74,7 +74,7 @@ const useSharedDriveLink = (sharing: SharedDrive): UseFileLinkResult => {
   const openLink = useCallback(
     (evt: React.MouseEvent<HTMLElement>) => {
       if (evt.ctrlKey || evt.metaKey || evt.shiftKey) {
-        window.open(href, '_blank')
+        window.open(href, '_blank', 'noopener,noreferrer')
       } else if (app === 'drive') {
         navigate(to)
       } else {
