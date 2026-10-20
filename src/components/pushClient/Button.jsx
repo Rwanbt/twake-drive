@@ -19,7 +19,7 @@ import {
 } from '@/components/pushClient'
 import Config from '@/config/config.json'
 
-const ButtonClient = ({ client, t }) => {
+export const ButtonClient = ({ client, t }) => {
   const [mustShow, setMustShow] = useState(false)
 
   useEffect(() => {
@@ -60,19 +60,25 @@ const ButtonClient = ({ client, t }) => {
   return (
     <Paper
       elevation={10}
-      className="u-pos-relative u-mh-1-half u-mb-1-half u-c-pointer"
+      className="u-pos-relative u-mh-1-half u-mb-1-half"
       style={{ backgroundColor: 'var(--defaultBackgroundColor)' }}
-      onClick={() => window.open(link)}
     >
       <IconButton
         className="u-top-0 u-right-0"
         style={{ position: 'absolute', zIndex: 1 }}
         size="small"
+        aria-label={t('Nav.close')}
         onClick={handleClick}
       >
         <Icon icon={CrossSmall} size={8} />
       </IconButton>
-      <ListItem component="div">
+      <ListItem
+        component="a"
+        href={link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="u-c-pointer"
+      >
         <ListItemIcon>
           <Icon icon={Drive} size={32} />
         </ListItemIcon>
