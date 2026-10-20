@@ -26,7 +26,6 @@ export default function IntentIframe({ onCancel }) {
   return (
     <iframe
       ref={iframeRef}
-      title="Scribe assistant"
       srcDoc={`<input aria-label="Ask Scribe"><button onclick="parent.postMessage('twake-scribe-mock:cancel', '*')">Close assistant</button>`}
     />
   )

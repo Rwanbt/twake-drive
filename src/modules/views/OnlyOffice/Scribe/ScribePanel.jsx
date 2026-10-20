@@ -16,6 +16,7 @@ export const ScribePanel = () => {
   const { t } = useI18n()
   const { type: themeType } = useCozyTheme()
   const panelRef = useRef(null)
+  const panelLabel = t('OnlyOffice.scribe.open')
   const {
     isOpen,
     content,
@@ -45,6 +46,22 @@ export const ScribePanel = () => {
     }
   }, [isOpen])
 
+  useEffect(() => {
+    const panel = panelRef.current
+    if (!isOpen || !panel) return
+    // cozy-interapp inserts and replaces its frames outside React, without
+    // titles. Name only unnamed frames, preserving service-specific names.
+    const nameFrames = () => {
+      panel.querySelectorAll('iframe').forEach(frame => {
+        if (!frame.title.trim()) frame.title = panelLabel
+      })
+    }
+    const observer = new MutationObserver(nameFrames)
+    observer.observe(panel, { childList: true, subtree: true })
+    nameFrames()
+    return () => observer.disconnect()
+  }, [isOpen, panelLabel])
+
   if (!isOpen) return null
 
   // A selection that holds what an answer cannot give back, as an image or a
@@ -72,7 +89,7 @@ export const ScribePanel = () => {
       ref={panelRef}
       tabIndex={-1}
       className={styles['scribe-panel']}
-      aria-label={t('OnlyOffice.scribe.open')}
+      aria-label={panelLabel}
     >
       <IntentIframe
         action="OPEN"

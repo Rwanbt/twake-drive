@@ -107,9 +107,7 @@ test('Scribe keyboard focus follows the assistant and returns to launcher at 320
   })
   await expect(panel).toBeFocused()
   await page.keyboard.press('Tab')
-  await expect(
-    page.frameLocator('iframe[title="Scribe assistant"]').getByRole('textbox')
-  ).toBeFocused()
+  await expect(page.frameLocator('iframe').getByRole('textbox')).toBeFocused()
   // The assistant closes itself; ensure keyboard users land back on launcher.
   await page.evaluate(() => document.querySelector('#launcher').click())
   await expect(panel).toHaveCount(0)
@@ -136,7 +134,7 @@ test('Scribe cancel from its iframe restores focus across tablet and mobile size
     fullPage: true
   })
 
-  const assistant = page.frameLocator('iframe[title="Scribe assistant"]')
+  const assistant = page.frameLocator('iframe')
   // The iframe document loads asynchronously. A keyboard Tab issued before
   // its first input exists cannot be expected to focus that input.
   await expect(assistant.getByRole('textbox')).toBeVisible()
@@ -165,4 +163,46 @@ test('Scribe cancel from its iframe restores focus across tablet and mobile size
   await page.keyboard.press('Enter')
   await expect(panel).toHaveCount(0)
   await expect(launch).toBeFocused()
+})
+
+test('Scribe names asynchronously inserted and replaced intent frames at 320px', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 })
+  await page.goto(origin)
+  await page.getByRole('button', { name: 'Toggle assistant' }).click()
+  const panel = page.getByRole('complementary')
+  await expect(panel.locator('iframe')).toHaveAttribute(
+    'title',
+    'OnlyOffice.scribe.open'
+  )
+  // cozy-interapp appends frames imperatively and may replace one when an
+  // intent composes another service. The replacement must retain a name.
+  await panel.locator('iframe').evaluate(frame => {
+    const replacement = document.createElement('iframe')
+    replacement.srcdoc = '<input aria-label="Follow-up question">'
+    frame.replaceWith(replacement)
+  })
+  await expect(panel.locator('iframe')).toHaveAttribute(
+    'title',
+    'OnlyOffice.scribe.open'
+  )
+  await panel.locator('iframe').evaluate(frame => {
+    const named = document.createElement('iframe')
+    named.title = 'Service-specific assistant'
+    frame.replaceWith(named)
+  })
+  // A later unnamed frame triggers the observer again; an existing service
+  // name must survive that pass.
+  await panel.evaluate(element => {
+    element.appendChild(document.createElement('iframe'))
+  })
+  await expect(panel.locator('iframe').last()).toHaveAttribute(
+    'title',
+    'OnlyOffice.scribe.open'
+  )
+  await expect(panel.locator('iframe').first()).toHaveAttribute(
+    'title',
+    'Service-specific assistant'
+  )
 })
