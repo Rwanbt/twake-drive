@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process'
-import { pbkdf2Sync, randomBytes } from 'crypto'
+import { createHmac, pbkdf2Sync, randomBytes } from 'crypto'
 
 import type { FullConfig } from '@playwright/test'
 
@@ -141,6 +141,39 @@ if failed:
   const apiResponse = await fetch(`${officeUrl}/web-apps/apps/api/documents/api.js`)
   if (!apiResponse.ok) {
     throw new Error(`OnlyOffice browser API unavailable (${apiResponse.status})`)
+  }
+
+  if (process.env.COZY_E2E_ONLYOFFICE_JWT_ENABLED === 'true') {
+    // Exercise the actual DocumentServer command endpoint, not just a JSON
+    // setting. Unsigned and incorrectly signed requests must be rejected;
+    // a correctly signed disposable request must be accepted.
+    const secret = process.env.COZY_E2E_ONLYOFFICE_JWT_SECRET
+    if (!secret) throw new Error('Missing disposable DocumentServer JWT key')
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+    const payload = Buffer.from(JSON.stringify({ c: 'version' })).toString('base64url')
+    const unsigned = `${header}.${payload}`
+    const signature = createHmac('sha256', secret).update(unsigned).digest('base64url')
+    const token = `${unsigned}.${signature}`
+    const commandError = async (body: Record<string, string>): Promise<number> => {
+      const response = await fetch(`${officeUrl}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      if (!response.ok) {
+        throw new Error(`OnlyOffice command endpoint unavailable (${response.status})`)
+      }
+      const result = (await response.json()) as { error?: number }
+      return result.error ?? -1
+    }
+    const unsignedResult = await commandError({ c: 'version' })
+    const forgedResult = await commandError({ token: `${unsigned}.${'0'.repeat(43)}` })
+    const signedResult = await commandError({ token })
+    if (unsignedResult !== 6 || forgedResult !== 6 || signedResult !== 0) {
+      throw new Error(
+        `OnlyOffice JWT command contract failed: unsigned=${unsignedResult} forged=${forgedResult} signed=${signedResult}`
+      )
+    }
   }
 
   for (const user of users) {
