@@ -94,3 +94,17 @@ jobs:
       E2E_ARGS: --grep @e2e-scribe
       E2E_REPORT: scribe
     steps: *e2e-steps
+
+  scribe-jwt:
+    name: Scribe JWT E2E
+    # Execute the same real editor/browser tests with signed Cozy↔OnlyOffice
+    # requests, not merely the JWT-disabled compatibility stack.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      E2E_ARGS: --grep @e2e-scribe
+      E2E_REPORT: scribe-jwt
+      COZY_E2E_ONLYOFFICE_JWT_ENABLED: 'true'
+    steps: *e2e-steps

@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process'
-import { pbkdf2Sync } from 'crypto'
+import { pbkdf2Sync, randomBytes } from 'crypto'
 
 import type { FullConfig } from '@playwright/test'
 
@@ -93,6 +93,22 @@ async function verifyOfficeNetwork(
   portsConfig: E2EPortsConfig,
   users: User[]
 ): Promise<void> {
+  if (process.env.COZY_E2E_ONLYOFFICE_JWT_ENABLED === 'true') {
+    // Fail the real JWT E2E gate if DocumentServer silently starts with JWT
+    // disabled or with a different signing key. Do not print key material.
+    const validateJwtConfig = `
+      const conf = require('/etc/onlyoffice/documentserver/local.json').services.CoAuthoring;
+      const enabled = conf.token.enable;
+      const secret = process.env.JWT_SECRET;
+      if (!secret || !enabled.browser || !enabled.request.inbox || !enabled.request.outbox ||
+          conf.secret.inbox.string !== secret || conf.secret.outbox.string !== secret ||
+          conf.secret.session.string !== secret) process.exit(1);
+    `
+    execFileSync('docker', composeArgs('exec', '-T', 'onlyoffice', 'node', '-e', validateJwtConfig), {
+      cwd: process.cwd(),
+      stdio: 'ignore'
+    })
+  }
   const officeUrl = `http://onlyoffice.${portsConfig.rootDomain}:${portsConfig.onlyofficePort}`
   const apiResponse = await fetch(`${officeUrl}/web-apps/apps/api/documents/api.js`)
   if (!apiResponse.ok) {
@@ -286,6 +302,12 @@ export async function setupStack(
   portsConfig: E2EPortsConfig,
   workers = 1
 ): Promise<void> {
+  // Both Cozy and OnlyOffice must share this ephemeral secret. A fresh
+  // value is created per isolated E2E run, never a user or production key.
+  if (process.env.COZY_E2E_ONLYOFFICE_JWT_ENABLED === 'true') {
+    process.env.COZY_E2E_ONLYOFFICE_JWT_SECRET =
+      process.env.COZY_E2E_ONLYOFFICE_JWT_SECRET || randomBytes(32).toString('hex')
+  }
   process.env.E2E_PROJECT_NAME = portsConfig.projectName
   process.env.COZY_E2E_ROOT_DOMAIN = portsConfig.rootDomain
   process.env.COZY_E2E_STACK_PORT = String(portsConfig.stackPort)

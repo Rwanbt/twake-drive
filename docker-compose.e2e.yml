@@ -29,6 +29,7 @@ services:
       COZY_E2E_ROOT_DOMAIN: "${COZY_E2E_ROOT_DOMAIN:-cozy.localhost}"
       COZY_CONTEXTS_DEFAULT_SHARING_TRUSTED_DOMAINS: "${COZY_E2E_ROOT_DOMAIN:-cozy.localhost},${COZY_E2E_ROOT_DOMAIN:-cozy.localhost}:${COZY_E2E_STACK_PORT:-18080}"
       COZY_E2E_ONLYOFFICE_PORT: "${COZY_E2E_ONLYOFFICE_PORT:-18081}"
+      COZY_E2E_ONLYOFFICE_JWT_SECRET: "${COZY_E2E_ONLYOFFICE_JWT_SECRET:-}"
       COZY_SUBDOMAINS: flat
     # Served from its directory: an app installed from file:// is reinstalled
     # by the stack on every load of its index page, one instance at a time.
@@ -43,7 +44,8 @@ services:
   onlyoffice:
     image: onlyoffice/documentserver:9.4@sha256:e3da62a847b9a5d51a11f73cfea1d9c13c3be3809614490d4edddcf01dcf919b
     environment:
-      JWT_ENABLED: "false"
+      JWT_ENABLED: "${COZY_E2E_ONLYOFFICE_JWT_ENABLED:-false}"
+      JWT_SECRET: "${COZY_E2E_ONLYOFFICE_JWT_SECRET:-}"
       ALLOW_PRIVATE_IP_ADDRESS: "true"
       ALLOW_META_IP_ADDRESS: "false"
     volumes:
