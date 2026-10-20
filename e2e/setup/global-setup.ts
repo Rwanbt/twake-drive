@@ -95,19 +95,41 @@ async function verifyOfficeNetwork(
 ): Promise<void> {
   if (process.env.COZY_E2E_ONLYOFFICE_JWT_ENABLED === 'true') {
     // Fail the real JWT E2E gate if DocumentServer silently starts with JWT
-    // disabled or with a different signing key. Do not print key material.
+    // disabled or with a different signing key. Report only which assertions
+    // fail: never log keys, encoded tokens or the raw DocumentServer config.
     const validateJwtConfig = `
-      const conf = require('/etc/onlyoffice/documentserver/local.json').services.CoAuthoring;
-      const enabled = conf.token.enable;
+      const conf = require('/etc/onlyoffice/documentserver/local.json')?.services?.CoAuthoring;
+      const enabled = conf?.token?.enable;
       const secret = process.env.JWT_SECRET;
-      if (!secret || !enabled.browser || !enabled.request.inbox || !enabled.request.outbox ||
-          conf.secret.inbox.string !== secret || conf.secret.outbox.string !== secret ||
-          conf.secret.session.string !== secret) process.exit(1);
+      const checks = {
+        env: Boolean(secret),
+        browser: enabled?.browser === true,
+        inbox: enabled?.request?.inbox === true,
+        outbox: enabled?.request?.outbox === true,
+        inboxKey: Boolean(secret) && conf?.secret?.inbox?.string === secret,
+        outboxKey: Boolean(secret) && conf?.secret?.outbox?.string === secret,
+        sessionKey: Boolean(secret) && conf?.secret?.session?.string === secret
+      };
+      const failed = Object.keys(checks).filter(name => !checks[name]);
+      if (failed.length) {
+        console.error('JWT_ASSERTIONS_FAILED:' + failed.join(','));
+        process.exit(1);
+      }
     `
-    execFileSync('docker', composeArgs('exec', '-T', 'onlyoffice', 'node', '-e', validateJwtConfig), {
-      cwd: process.cwd(),
-      stdio: 'ignore'
-    })
+    try {
+      execFileSync('docker', composeArgs('exec', '-T', 'onlyoffice', 'node', '-e', validateJwtConfig), {
+        cwd: process.cwd(),
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+    } catch (error) {
+      const stderr = String((error as { stderr?: Buffer | string }).stderr || '')
+      const failed = stderr.match(/JWT_ASSERTIONS_FAILED:([a-zA-Z,]+)/)?.[1]
+      throw new Error(
+        failed
+          ? `OnlyOffice JWT mode mismatch (failed: ${failed})`
+          : 'OnlyOffice JWT configuration inspection could not run'
+      )
+    }
   }
   const officeUrl = `http://onlyoffice.${portsConfig.rootDomain}:${portsConfig.onlyofficePort}`
   const apiResponse = await fetch(`${officeUrl}/web-apps/apps/api/documents/api.js`)
