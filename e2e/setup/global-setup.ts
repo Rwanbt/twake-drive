@@ -97,27 +97,33 @@ async function verifyOfficeNetwork(
     // Fail the real JWT E2E gate if DocumentServer silently starts with JWT
     // disabled or with a different signing key. Report only which assertions
     // fail: never log keys, encoded tokens or the raw DocumentServer config.
+    // The DocumentServer image exposes Python 3 for our network probes;
+    // unlike `node`, it is available in its root image execution PATH.
     const validateJwtConfig = `
-      const conf = require('/etc/onlyoffice/documentserver/local.json')?.services?.CoAuthoring;
-      const enabled = conf?.token?.enable;
-      const secret = process.env.JWT_SECRET;
-      const checks = {
-        env: Boolean(secret),
-        browser: enabled?.browser === true,
-        inbox: enabled?.request?.inbox === true,
-        outbox: enabled?.request?.outbox === true,
-        inboxKey: Boolean(secret) && conf?.secret?.inbox?.string === secret,
-        outboxKey: Boolean(secret) && conf?.secret?.outbox?.string === secret,
-        sessionKey: Boolean(secret) && conf?.secret?.session?.string === secret
-      };
-      const failed = Object.keys(checks).filter(name => !checks[name]);
-      if (failed.length) {
-        console.error('JWT_ASSERTIONS_FAILED:' + failed.join(','));
-        process.exit(1);
-      }
+import json
+import os
+import sys
+with open('/etc/onlyoffice/documentserver/local.json', encoding='utf-8') as source:
+    conf = json.load(source).get('services', {}).get('CoAuthoring', {})
+enabled = conf.get('token', {}).get('enable', {})
+secret = os.environ.get('JWT_SECRET', '')
+configured = conf.get('secret', {})
+checks = {
+    'env': bool(secret),
+    'browser': enabled.get('browser') is True,
+    'inbox': enabled.get('request', {}).get('inbox') is True,
+    'outbox': enabled.get('request', {}).get('outbox') is True,
+    'inboxKey': bool(secret) and configured.get('inbox', {}).get('string') == secret,
+    'outboxKey': bool(secret) and configured.get('outbox', {}).get('string') == secret,
+    'sessionKey': bool(secret) and configured.get('session', {}).get('string') == secret
+}
+failed = [name for name, ok in checks.items() if not ok]
+if failed:
+    sys.stderr.write('JWT_ASSERTIONS_FAILED:' + ','.join(failed) + '\\n')
+    sys.exit(1)
     `
     try {
-      execFileSync('docker', composeArgs('exec', '-T', 'onlyoffice', 'node', '-e', validateJwtConfig), {
+      execFileSync('docker', composeArgs('exec', '-T', 'onlyoffice', 'python3', '-c', validateJwtConfig), {
         cwd: process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe']
       })
