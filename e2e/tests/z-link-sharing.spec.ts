@@ -129,7 +129,7 @@ test.describe('Share by link', () => {
     }
   })
 
-  test('a password-protected link challenges before granting access', async ({
+  test('a password-protected link challenges before granting access', { tag: '@security-smoke' }, async ({
     alicePage,
     aliceDrive,
     browser
@@ -166,7 +166,7 @@ test.describe('Share by link', () => {
     })
   })
 
-  test('an expired link is rejected', async ({
+  test('an expired link is rejected', { tag: '@security-smoke' }, async ({
     alicePage,
     aliceDrive,
     browser

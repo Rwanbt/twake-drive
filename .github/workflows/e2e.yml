@@ -5,7 +5,7 @@ on:
     - cron: '0 3 * * *'
   workflow_dispatch:
   pull_request:
-    types: [labeled, synchronize, reopened]
+    types: [opened, labeled, synchronize, reopened]
 
 jobs:
   # The Drive suite is split into shards, each with its own stack: when its
@@ -93,6 +93,20 @@ jobs:
     env:
       E2E_ARGS: --grep @e2e-scribe
       E2E_REPORT: scribe
+    steps: *e2e-steps
+
+  security-smoke:
+    name: Drive sharing security smoke
+    # Real ACL checks must run on every newly opened or updated PR, even
+    # without the manually applied e2e label. Use JWT-enabled OnlyOffice too.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      E2E_ARGS: --grep @security-smoke
+      E2E_REPORT: security-smoke
+      COZY_E2E_ONLYOFFICE_JWT_ENABLED: 'true'
     steps: *e2e-steps
 
   scribe-jwt:
