@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { USERS } from '../helpers/config'
@@ -16,6 +16,10 @@ import { collectWcagFindings } from '../helpers/wcag'
 
 const VIEWPORTS = [320, 375, 768, 1024, 1440]
 const INVENTORY_DIRECTORY = join(__dirname, '..', '..', 'wcag-inventory')
+
+const BASELINE = JSON.parse(
+  readFileSync(join(__dirname, '..', 'baselines', 'wcag-baseline.json'), 'utf8')
+) as Record<string, Record<string, number>>
 
 const writeInventory = (name: string, inventory: unknown): void => {
   mkdirSync(INVENTORY_DIRECTORY, { recursive: true })
@@ -54,6 +58,24 @@ test.describe('WCAG 2.2 AA of the file list', () => {
           inventory.scanned.interactiveElements,
           'no interactive element was measured on the file list'
         ).toBeGreaterThan(0)
+
+        // Gate: the findings may not exceed the accepted baseline. A new rule
+        // or an increased count is a regression that must be fixed (or the
+        // baseline must be re-accepted explicitly with justification).
+        const baseline = BASELINE[`folder-${width}`] ?? {}
+        for (const [rule, count] of Object.entries(inventory.counts)) {
+          const allowed = baseline[rule] ?? 0
+          expect(
+            count,
+            `WCAG regression: ${rule} has ${count} findings, baseline allows ${allowed}`
+          ).toBeLessThanOrEqual(allowed)
+        }
+        for (const rule of Object.keys(inventory.counts)) {
+          expect(
+            Object.prototype.hasOwnProperty.call(baseline, rule),
+            `WCAG regression: new rule '${rule}' not present in the accepted baseline`
+          ).toBe(true)
+        }
       }
     )
   }
