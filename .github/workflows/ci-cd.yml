@@ -47,6 +47,8 @@ jobs:
         run: yarn build:onlyoffice-scribe
       - name: Test fork-safe release policy
         run: node --test ci/fork-release-policy.test.mjs
+      - name: Test supply chain policy
+        run: node --test ci/supply-chain-policy.test.mjs
       - name: Build
         run: yarn build
       - name: BundleMon
