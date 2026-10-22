@@ -18,7 +18,7 @@ const VIEWPORTS = [320, 375, 768, 1024, 1440]
 const INVENTORY_DIRECTORY = join(__dirname, '..', '..', 'wcag-inventory')
 
 const BASELINE = JSON.parse(
-  readFileSync(join(__dirname, '..', 'baselines', 'wcag-baseline.json'), 'utf8')
+  readFileSync(join(__dirname, '..', 'baselines', 'wcag-baseline.json'), 'utf8').replace(/^\uFEFF/, '')
 )
 
 const writeInventory = (name, inventory) => {
