@@ -1,6 +1,7 @@
 services:
   couchdb:
-    image: couchdb:3
+    # Pinned by digest: the same bytes on every run and on every machine.
+    image: couchdb:3@sha256:4e8e0a366208a87d5059b0f4fcbefff13c32401a655d4629c19be6288ea77675
     environment:
       COUCHDB_USER: admin
       COUCHDB_PASSWORD: password
@@ -13,7 +14,11 @@ services:
       retries: 10
 
   cozystack:
-    image: ${COZY_E2E_STACK_IMAGE-cozy/cozy-stack:latest}
+    # Pinned by digest like the other images of the runtime: a run must not
+    # silently test another revision of the Stack. Override it with
+    # COZY_E2E_STACK_IMAGE to test a local build, and with
+    # COZY_E2E_STACK_PULL_POLICY=never to keep it.
+    image: ${COZY_E2E_STACK_IMAGE-cozy/cozy-stack@sha256:9916b218a11f6e5907613b64eb6bdf9011867647298d7daebb331135492e7120}
     pull_policy: ${COZY_E2E_STACK_PULL_POLICY:-always}
     depends_on:
       couchdb:
