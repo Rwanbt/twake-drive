@@ -16,6 +16,8 @@ import { PublicLinkPage } from '../pages/PublicLinkPage'
 
 const ALICE_ROOT = `${USERS.alice.appUrl}/#/folder`
 const FIXTURE = path.resolve(__dirname, '..', 'fixtures', 'sample.txt')
+/** Content of the shared file, to tell it from the shell of the page. */
+const FILE_CONTENT = 'hello from twake-drive e2e'
 
 /** MM/dd/yyyy for the English DatePicker, `offsetDays` from today. */
 function localeDate(offsetDays: number): string {
@@ -202,5 +204,78 @@ test.describe('Share by link', () => {
       await expect(publicPage.unavailableMessage).toBeVisible({ timeout: 15_000 })
       await expect(publicPage.fileList).toHaveCount(0)
     })
+  })
+
+  test('a link revoked after a consultation no longer exposes the content', { tag: '@security-smoke' }, async ({
+    alicePage,
+    aliceDrive,
+    browser
+  }) => {
+    await alicePage
+      .context()
+      .grantPermissions(['clipboard-read', 'clipboard-write'])
+
+    await alicePage.goto(ALICE_ROOT)
+    const sharedFolder = `Revoked ${stamp()}`
+    const fileName = `Revoked content ${stamp()}.txt`
+    const filePath = path.join(path.dirname(FIXTURE), fileName)
+    let folderId = ''
+    await copyFile(FIXTURE, filePath)
+    try {
+      await aliceDrive.createFolder(sharedFolder)
+      await aliceDrive.openFolder(sharedFolder)
+      folderId = alicePage.url().match(/\/folder\/([^/?]+)/)?.[1] ?? ''
+      expect(folderId).not.toBe('')
+      await aliceDrive.uploadFiles(filePath)
+      await aliceDrive.row(fileName).waitVisible()
+
+      await openShareModal(alicePage)
+      const link = new ShareByLinkPage(alicePage)
+      const url = await link.createLink()
+      await reopenShareModal(alicePage)
+      await link.waitForLinkRow()
+      await link.openRestrictions()
+      await link.enableExpiration(localeDate(1))
+      await link.confirm()
+
+      // The visitor consults the content before the revocation: their browser
+      // holds the file list and the file itself. Nothing of it may survive the
+      // revocation, not even from the cache of the browser.
+      const ctx = await browser.newContext()
+      try {
+        const pub = await ctx.newPage()
+        await pub.goto(url)
+        const publicPage = new PublicLinkPage(pub)
+        await expect(publicPage.fileList).toBeVisible({ timeout: 15_000 })
+        await publicPage.row(fileName).waitVisible()
+        await publicPage.row(fileName).open()
+        await publicPage.expectFileContent(FILE_CONTENT)
+
+        // The owner revokes the link while the visitor consults it.
+        const permission = await findLinkPermission(
+          USERS.alice.instance,
+          folderId
+        )
+        await setLinkExpiry(
+          USERS.alice.instance,
+          permission.id,
+          new Date('2000-01-01T00:00:00Z')
+        )
+
+        await pub.reload()
+        await expect(publicPage.unavailableMessage).toBeVisible({
+          timeout: 15_000
+        })
+        await expect(publicPage.fileList).toHaveCount(0)
+        await expect(pub.getByText(FILE_CONTENT, { exact: true })).toHaveCount(0)
+      } finally {
+        await ctx.close()
+      }
+    } finally {
+      await safeUnlink(filePath)
+      if (folderId) {
+        await trashById(USERS.alice.instance, folderId)
+      }
+    }
   })
 })
