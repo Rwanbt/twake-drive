@@ -78,6 +78,18 @@ jobs:
           path: test-results/
           retention-days: 14
 
+      - name: Upload the WCAG 2.2 AA inventory
+        # The measured accessibility findings are evidence: they are published
+        # next to the test report so the result can be reviewed without
+        # rerunning the stack.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: wcag-inventory-${{ env.E2E_REPORT }}
+          path: wcag-inventory/
+          if-no-files-found: ignore
+          retention-days: 14
+
   # The cases of the scribe plugin run in a job of their own, so that they can
   # be run alone: the label e2e-scribe runs only them
   scribe:
