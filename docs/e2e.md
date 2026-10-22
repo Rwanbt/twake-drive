@@ -68,8 +68,8 @@ yarn e2e
    the build; a tag alone does not prove source identity.
 
 5. **Return to the standard image** by running without the two
-   `COZY_E2E_STACK_*` variables. The defaults are `cozy/cozy-stack:latest` and
-   `pull_policy: always`.
+   `COZY_E2E_STACK_*` variables. The default is the Stack image pinned by
+   digest in `docker-compose.e2e.yml`, with `pull_policy: always`.
 
 Selecting a Stack image does not add an OnlyOffice Document Server.
 
@@ -163,10 +163,27 @@ they share the same saved configuration file.
 The Compose project provides Docs on
 `http://onlyoffice.<root-domain>:<office-port>`. The browser and Stack reach
 Docs through that origin; Docs reaches the three Stack instance domains for
-source downloads and save callbacks. JWT is disabled in this local E2E
-runtime. The nominal opening test therefore does not validate JWT authentication
-or persistence through save callbacks. Published ports bind to host loopback;
+source downloads and save callbacks. Published ports bind to host loopback;
 this configuration is intended for disposable tests, not deployment.
+
+JWT is disabled by default in this local E2E runtime. Set
+`COZY_E2E_ONLYOFFICE_JWT_ENABLED=true` to sign the requests between the Stack
+and the Document Server, with a disposable secret that the setup creates for
+the run (`COZY_E2E_ONLYOFFICE_JWT_SECRET`):
+
+```sh
+COZY_E2E_ONLYOFFICE_JWT_ENABLED=true yarn e2e
+```
+
+The setup then refuses to start unless the Document Server really runs with
+JWT enabled and with the expected signing key, and unless the Document Server
+rejects an unsigned or a badly signed command and accepts a correctly signed
+one. Without this variable, the nominal opening test does not validate JWT
+authentication or persistence through save callbacks.
+
+Every image of the runtime is pinned by digest, so a run always exercises the
+same bytes. `COZY_E2E_STACK_IMAGE` and `COZY_E2E_STACK_PULL_POLICY` still
+allow another Stack revision, as described above.
 
 Check the Office integration with a normal Word document:
 
