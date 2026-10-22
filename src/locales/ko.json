@@ -19,6 +19,9 @@
   "Toolbar": {
     "more": "더보기"
   },
+  "searchbar": {
+    "clear": "검색 지우기"
+  },
   "toolbar": {
     "menu_create_excalidraw": "Excalidraw",
     "item_more": "더보기",

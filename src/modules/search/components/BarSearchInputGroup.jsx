@@ -8,6 +8,7 @@ import styles from '@/modules/search/components/styles.styl'
 
 const BarSearchInputGroup = ({
   children,
+  clearLabel,
   isMobile,
   onClean,
   isInputNotEmpty
@@ -27,7 +28,7 @@ const BarSearchInputGroup = ({
       }
       append={
         isInputNotEmpty ? (
-          <IconButton size="medium" onClick={onClean}>
+          <IconButton size="medium" onClick={onClean} aria-label={clearLabel}>
             <Icon icon={CrossCircleOutline} />
           </IconButton>
         ) : null

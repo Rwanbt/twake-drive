@@ -40,6 +40,9 @@
   "Toolbar": {
     "more": "المزيد"
   },
+  "searchbar": {
+    "clear": "مسح البحث"
+  },
   "toolbar": {
     "menu_create_excalidraw": "Excalidraw",
     "item_more": "المزيد",

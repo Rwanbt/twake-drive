@@ -20,6 +20,7 @@ const FileIcon = ({ file, size, viewType = 'list' }) => {
         render={src => (
           <img
             src={src}
+            alt=""
             width={size || 32}
             height={size || 32}
             className={styles['fil-file-thumbnail-image']}

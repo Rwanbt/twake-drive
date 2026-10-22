@@ -26,6 +26,9 @@
     "title_activity": "Activiteit",
     "title_trash": "Prullenbak"
   },
+  "searchbar": {
+    "clear": "Zoekopdracht wissen"
+  },
   "toolbar": {
     "menu_create_excalidraw": "Excalidraw",
     "menu_select": "Selecteer items",

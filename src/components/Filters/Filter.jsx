@@ -119,6 +119,7 @@ const Filter = forwardRef(function Filter(
     clearLabel = null,
     disabled = false,
     InputProps = null,
+    inputProps = {},
     label,
     onChange = null,
     onClear = null,
@@ -147,6 +148,10 @@ const Filter = forwardRef(function Filter(
         disabled={disabled}
         fullWidth={!autoWidth}
         hiddenLabel
+        inputProps={{
+          'aria-label': label,
+          ...inputProps
+        }}
         options={options}
         onChange={onChange}
         select={select}

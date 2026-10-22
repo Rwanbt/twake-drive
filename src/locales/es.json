@@ -651,6 +651,7 @@
   },
   "searchbar": {
     "placeholder": "Buscar",
+    "clear": "Borrar búsqueda",
     "empty": "No se ha encontrado ningún resultado para su consulta “%{query}”"
   },
   "button": {

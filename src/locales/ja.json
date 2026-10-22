@@ -429,6 +429,7 @@
   },
   "searchbar": {
     "placeholder": "検索します",
+    "clear": "検索をクリア",
     "empty": "問い合わせ “%{query}” の結果が見つかりません"
   },
   "actions": {

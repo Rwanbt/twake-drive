@@ -10,6 +10,7 @@ const HomeIcon = () => {
       <img
         className="u-w-100 u-h-100 u-maw-2 u-mah-2"
         src={`${client.getStackClient().uri}/assets/images/icon-cozy-home.svg`}
+        alt=""
       />
     </div>
   )

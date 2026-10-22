@@ -78,6 +78,7 @@
   },
   "searchbar": {
     "placeholder": "Szukaj czegokolwiek",
+    "clear": "Wyczyść wyszukiwanie",
     "empty": "Brak wyników dla wyszukania \"%{query}\""
   },
   "search": {
