@@ -3,6 +3,7 @@
 import 'cozy-ui/transpiled/react/stylesheet.css'
 import 'cozy-ui/dist/cozy-ui.utils.min.css'
 import 'cozy-sharing/dist/stylesheet.css'
+import '@/styles/theme-tokens.css'
 
 import 'whatwg-fetch'
 import React from 'react'

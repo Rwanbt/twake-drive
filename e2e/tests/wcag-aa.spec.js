@@ -18,7 +18,10 @@ const VIEWPORTS = [320, 375, 768, 1024, 1440]
 const INVENTORY_DIRECTORY = join(__dirname, '..', '..', 'wcag-inventory')
 
 const BASELINE = JSON.parse(
-  readFileSync(join(__dirname, '..', 'baselines', 'wcag-baseline.json'), 'utf8').replace(/^\uFEFF/, '')
+  readFileSync(
+    join(__dirname, '..', 'baselines', 'wcag-baseline.json'),
+    'utf8'
+  ).replace(/^\uFEFF/, '')
 )
 
 const writeInventory = (name, inventory) => {
@@ -79,6 +82,32 @@ test.describe('WCAG 2.2 AA of the file list', () => {
       }
     )
   }
+
+  test(
+    'the file list has AA text contrast in the dark theme at 1440px',
+    { tag: '@a11y' },
+    async ({ alicePage }) => {
+      await alicePage.addInitScript(() => {
+        window.localStorage.setItem('ui-theme', 'dark')
+      })
+      await alicePage.setViewportSize({ width: 1440, height: 800 })
+      await alicePage.goto(`${USERS.alice.appUrl}/#/folder`)
+      await expect(alicePage.getByTestId('fil-content-body')).toBeVisible({
+        timeout: 30_000
+      })
+      await expect(alicePage.locator('.TwakeTheme--dark').first()).toHaveClass(
+        /TwakeTheme--dark/
+      )
+
+      const inventory = await collectWcagFindings(alicePage, 'folder-dark-1440')
+      writeInventory('folder-dark-1440', inventory)
+
+      expect(
+        inventory.counts['color-contrast'] ?? 0,
+        JSON.stringify(inventory.findings)
+      ).toBe(0)
+    }
+  )
 
   test(
     'the file list stays usable at 200% text scaling',

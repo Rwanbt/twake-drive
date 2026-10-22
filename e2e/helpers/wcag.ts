@@ -124,7 +124,7 @@ const collect = (): {
     if (ratio < required) {
       add(
         'color-contrast',
-        `${ratio}:1 (required ${required}:1) ${size}px/${weight} "${(element.textContent ?? '').trim().slice(0, 40)}"`
+        `${ratio}:1 (required ${required}:1) ${size}px/${weight} "${(element.textContent ?? '').trim().slice(0, 40)}" <${element.tagName.toLowerCase()} class="${element.className}"> color=${style.color} background=${background.join(',')}`
       )
     }
   }
