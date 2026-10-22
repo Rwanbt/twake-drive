@@ -164,6 +164,15 @@ const collect = (): {
     return ''
   }
 
+  const diagnosticAttributes = (element: HTMLElement): string =>
+    ['id', 'name', 'role', 'placeholder', 'aria-label', 'aria-labelledby']
+      .map(attribute => {
+        const value = element.getAttribute(attribute)
+        return value ? `${attribute}="${value}"` : null
+      })
+      .filter((value): value is string => value !== null)
+      .join(' ')
+
   for (const element of interactiveElements) {
     const name = accessibleName(element)
     if (!name) {
@@ -173,7 +182,7 @@ const collect = (): {
           element.getAttribute('class')
             ? ` class="${element.getAttribute('class')}"`
             : ''
-        }>`
+        }${diagnosticAttributes(element) ? ` ${diagnosticAttributes(element)}` : ''}>`
       )
     }
   }
@@ -218,7 +227,7 @@ const collect = (): {
           control.getAttribute('name')
             ? ` name="${control.getAttribute('name')}"`
             : ''
-        }> without a label`
+        }${diagnosticAttributes(control) ? ` ${diagnosticAttributes(control)}` : ''}> without a label`
       )
     }
   }

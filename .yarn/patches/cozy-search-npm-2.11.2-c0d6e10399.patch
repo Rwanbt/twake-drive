@@ -1,0 +1,61 @@
+diff --git a/dist/components/Search/AssistantButton.js b/dist/components/Search/AssistantButton.js
+index b49258a621caa65fc60d6f6da85caefe7ec9d3ad..cf215791b9f7fd08238cae6aa20f79f3f93412ba 100644
+--- a/dist/components/Search/AssistantButton.js
++++ b/dist/components/Search/AssistantButton.js
+@@ -21,8 +21,12 @@ var _TwakeAssistantIcon = require("../AssistantIcon/TwakeAssistantIcon");
+ 
+ var _helpers = require("../helpers");
+ 
++var _twakeI18n = require("twake-i18n");
++
+ var AssistantButton = function AssistantButton(_ref) {
+   var size = _ref.size;
++  var _useI18n = (0, _twakeI18n.useI18n)(),
++      t = _useI18n.t;
+   var navigate = (0, _reactRouterDom.useNavigate)();
+ 
+   var _useLocation = (0, _reactRouterDom.useLocation)(),
+@@ -38,6 +42,7 @@ var AssistantButton = function AssistantButton(_ref) {
+     className: "u-mr-half"
+   }, /*#__PURE__*/_react.default.createElement(_IconButton.default, {
+     onClick: onClick,
++    "aria-label": t('assistant.name'),
+     size: "small",
+     color: "primary"
+   }, /*#__PURE__*/_react.default.createElement(_twakeIcons.Icon, {
+diff --git a/dist/components/Search/SearchBarDesktop.js b/dist/components/Search/SearchBarDesktop.js
+index 3412ea8d3ebf7c2c520da22844b5662beb81eb1c..fa127d0407dee3178ef8ad3c43bd6cb1efffde76 100644
+--- a/dist/components/Search/SearchBarDesktop.js
++++ b/dist/components/Search/SearchBarDesktop.js
+@@ -25,6 +25,8 @@ var _ResultMenu = _interopRequireDefault(require("../ResultMenu/ResultMenu"));
+ 
+ var _helpers = require("../helpers");
+ 
++var _twakeI18n = require("twake-i18n");
++
+ function _getRequireWildcardCache(nodeInterop) { if (typeof WeakMap !== "function") return null; var cacheBabelInterop = new WeakMap(); var cacheNodeInterop = new WeakMap(); return (_getRequireWildcardCache = function _getRequireWildcardCache(nodeInterop) { return nodeInterop ? cacheNodeInterop : cacheBabelInterop; })(nodeInterop); }
+ 
+ function _interopRequireWildcard(obj, nodeInterop) { if (!nodeInterop && obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(nodeInterop); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (key !== "default" && Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+@@ -52,6 +54,8 @@ var SearchBarDesktop = function SearchBarDesktop(_ref) {
+       results = _useSearch.results,
+       selectedIndex = _useSearch.selectedIndex,
+       setSelectedIndex = _useSearch.setSelectedIndex;
++  var _useI18n = (0, _twakeI18n.useI18n)(),
++      t = _useI18n.t;
+ 
+   var searchRef = (0, _react.useRef)();
+   var listRef = (0, _react.useRef)();
+@@ -122,8 +126,11 @@ var SearchBarDesktop = function SearchBarDesktop(_ref) {
+     value: value,
+     componentsProps: {
+       inputBase: {
+-        onKeyDown: handleKeyDown,
+-        endAdornment: (0, _helpers.isAssistantEnabled)() && !disabledAssistantButton && /*#__PURE__*/_react.default.createElement(_AssistantButton.AssistantButton, {
++      onKeyDown: handleKeyDown,
++      inputProps: {
++        "aria-label": t('SearchBar.placeholder')
++      },
++      endAdornment: (0, _helpers.isAssistantEnabled)() && !disabledAssistantButton && /*#__PURE__*/_react.default.createElement(_AssistantButton.AssistantButton, {
+           size: size
+         })
+       }

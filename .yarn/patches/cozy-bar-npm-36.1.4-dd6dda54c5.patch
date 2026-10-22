@@ -1,0 +1,110 @@
+diff --git a/dist/components/AppsMenu/index.js b/dist/components/AppsMenu/index.js
+index dc766596fff7868e4f9fe6e550a9dd5a26c8adb5..9279673eb41fa4742cbbc3dc6b1ca6beccfed5c6 100644
+--- a/dist/components/AppsMenu/index.js
++++ b/dist/components/AppsMenu/index.js
+@@ -25,6 +25,8 @@ var _Breakpoints = require("cozy-ui/transpiled/react/providers/Breakpoints");
+ 
+ var _styles = require("cozy-ui/transpiled/react/styles");
+ 
++var _useI18n = _interopRequireDefault(require("../useI18n"));
++
+ function _getRequireWildcardCache(nodeInterop) { if (typeof WeakMap !== "function") return null; var cacheBabelInterop = new WeakMap(); var cacheNodeInterop = new WeakMap(); return (_getRequireWildcardCache = function _getRequireWildcardCache(nodeInterop) { return nodeInterop ? cacheNodeInterop : cacheBabelInterop; })(nodeInterop); }
+ 
+ function _interopRequireWildcard(obj, nodeInterop) { if (!nodeInterop && obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(nodeInterop); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (key !== "default" && Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+@@ -55,6 +57,8 @@ var AppsMenu = function AppsMenu(_ref) {
+ 
+   var _useBreakpoints = (0, _Breakpoints.useBreakpoints)(),
+       isMobile = _useBreakpoints.isMobile;
++  var _useI18n2 = (0, _useI18n.default)(),
++      t = _useI18n2.t;
+ 
+   var toggleMenu = function toggleMenu() {
+     setOpen(!isOpen);
+@@ -66,6 +70,7 @@ var AppsMenu = function AppsMenu(_ref) {
+   }, /*#__PURE__*/_react.default.createElement(_IconButton.default, {
+     ref: buttonRef,
+     onClick: toggleMenu,
++    "aria-label": t('menu.apps'),
+     className: "u-p-half"
+   }, /*#__PURE__*/_react.default.createElement(_twakeIcons.Icon, {
+     icon: _twakeIcons.Mosaic,
+diff --git a/dist/components/UserMenu/components/AvatarMyself.js b/dist/components/UserMenu/components/AvatarMyself.js
+index b3912dceac000ea13b3422d805ac2fd63fbb5382..7933d310cf341f3e4028a5d0018b44d7dfc3a135 100644
+--- a/dist/components/UserMenu/components/AvatarMyself.js
++++ b/dist/components/UserMenu/components/AvatarMyself.js
+@@ -20,6 +20,9 @@ var AvatarMyself = function AvatarMyself(_ref) {
+   var client = (0, _cozyClient.useClient)();
+   var rootURL = client.getStackClient().uri;
+   return /*#__PURE__*/_react.default.createElement(_Avatar.default, {
++    imgProps: {
++      alt: ""
++    },
+     className: className,
+     size: size,
+     src: "".concat(rootURL, "/public/avatar?fallback=initials")
+diff --git a/dist/components/UserMenu/index.js b/dist/components/UserMenu/index.js
+index 2ac59c0ea1f857bae1854dcbf686aa29540554dd..267343fbaa932d714e43cc9622598210d241b4bf 100644
+--- a/dist/components/UserMenu/index.js
++++ b/dist/components/UserMenu/index.js
+@@ -27,6 +27,8 @@ var _styles = require("cozy-ui/transpiled/react/styles");
+ 
+ var _AvatarMyself = _interopRequireDefault(require("./components/AvatarMyself"));
+ 
++var _useI18n = _interopRequireDefault(require("../useI18n"));
++
+ function _getRequireWildcardCache(nodeInterop) { if (typeof WeakMap !== "function") return null; var cacheBabelInterop = new WeakMap(); var cacheNodeInterop = new WeakMap(); return (_getRequireWildcardCache = function _getRequireWildcardCache(nodeInterop) { return nodeInterop ? cacheNodeInterop : cacheBabelInterop; })(nodeInterop); }
+ 
+ function _interopRequireWildcard(obj, nodeInterop) { if (!nodeInterop && obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(nodeInterop); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (key !== "default" && Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+@@ -56,6 +58,8 @@ var UserMenu = function UserMenu(_ref) {
+ 
+   var _useBreakpoints = (0, _Breakpoints.useBreakpoints)(),
+       isMobile = _useBreakpoints.isMobile;
++  var _useI18n2 = (0, _useI18n.default)(),
++      t = _useI18n2.t;
+ 
+   var _useInstanceInfo = (0, _cozyClient.useInstanceInfo)(),
+       isLoaded = _useInstanceInfo.isLoaded,
+@@ -73,6 +77,7 @@ var UserMenu = function UserMenu(_ref) {
+     ref: buttonRef,
+     onClick: toggleMenu,
+     disabled: !isLoaded,
++    "aria-label": t('profile'),
+     className: "u-p-0 u-ml-half"
+   }, /*#__PURE__*/_react.default.createElement(_AvatarMyself.default, {
+     size: isMobile ? 's' : 'm'
+diff --git a/dist/components/utils/HelpLink.js b/dist/components/utils/HelpLink.js
+index fbdbaf5dd4c2756f6fd4f2e1fd7e36b5fb0d137d..a3347bb3c5008480c8fcdc54ff4ec4fea96310ed 100644
+--- a/dist/components/utils/HelpLink.js
++++ b/dist/components/utils/HelpLink.js
+@@ -15,7 +15,11 @@ var _cozyClient = require("cozy-client");
+ 
+ var _IconButton = _interopRequireDefault(require("cozy-ui/transpiled/react/IconButton"));
+ 
++var _useI18n = _interopRequireDefault(require("../useI18n"));
++
+ var HelpLink = function HelpLink() {
++  var _useI18n2 = (0, _useI18n.default)(),
++      t = _useI18n2.t;
+   var _context$data, _context$data$attribu;
+ 
+   var _useInstanceInfo = (0, _cozyClient.useInstanceInfo)(),
+@@ -26,6 +30,7 @@ var HelpLink = function HelpLink() {
+   return /*#__PURE__*/_react.default.createElement(_IconButton.default, {
+     component: "a",
+     href: helpLink,
++    "aria-label": t('help'),
+     target: "_blank",
+     rel: "noopener, noreferrer",
+     className: "u-p-half"
+diff --git a/dist/components/utils/IconCozyHome.js b/dist/components/utils/IconCozyHome.js
+index 0de07466675f6b42cec3bd4510a6478a38499ec4..5f971577783e7cd9a9be6d36d1507384a3a3e9ae 100644
+--- a/dist/components/utils/IconCozyHome.js
++++ b/dist/components/utils/IconCozyHome.js
+@@ -28,6 +28,7 @@ var IconCozyHome = function IconCozyHome() {
+   };
+ 
+   return /*#__PURE__*/_react.default.createElement(_AppIcon.default, {
++    alt: "",
+     fetchIcon: fetchIcon,
+     fallbackIcon: _twakeIcons.TwakeWorkplace,
+     className: isMobile ? 'u-ml-half' : undefined

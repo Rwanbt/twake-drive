@@ -402,6 +402,7 @@ export const FilePickerButton = () => {
       <div className="u-mb-1">
         <TextField
           label="Default directory ID"
+          inputProps={{ 'aria-label': 'Default directory ID' }}
           value={defaultDirIdInput}
           onChange={event => setDefaultDirIdInput(event.target.value)}
           size="small"

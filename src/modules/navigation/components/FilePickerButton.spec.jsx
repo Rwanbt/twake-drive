@@ -126,7 +126,12 @@ describe('FilePickerButton', () => {
       label: 'Download link'
     })
 
-    fireEvent.change(screen.getByLabelText('Default directory ID'), {
+    const directoryIdInput = screen.getByLabelText('Default directory ID')
+    expect(directoryIdInput).toHaveAttribute(
+      'aria-label',
+      'Default directory ID'
+    )
+    fireEvent.change(directoryIdInput, {
       target: { value: 'custom-dir-123' }
     })
     fireEvent.click(screen.getByLabelText('Restrict to default directory'))
