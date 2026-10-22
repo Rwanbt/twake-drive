@@ -1,9 +1,13 @@
 import type { Frame, Page } from '@playwright/test'
 
+import { getOfficeUrl } from '../helpers/config'
 import { expect } from '../helpers/fixtures'
 import { normalizeModel, type ScribeModel } from '../helpers/scribeModel'
 
 const PLUGIN_URL = /\/sdkjs-plugins\/twake-scribe\//
+
+/** Name of the frame a hostile page adds to impersonate the plugin. */
+const HOSTILE_FRAME_NAME = 'twake-hostile-frame'
 
 export interface ScribeContent {
   content: string
@@ -538,5 +542,196 @@ export class ScribePluginPage {
 
   async read(): Promise<ScribeModel> {
     return normalizeModel(await this.editor().evaluate(readEditor))
+  }
+
+  /**
+   * Opens a document and lets the app talk to the plugin: the messages of the
+   * plugin are recorded, not intercepted, so the app really receives them.
+   */
+  async openLive(appUrl: string, fileId: string): Promise<void> {
+    await this.page.addInitScript(() => {
+      const holder = window as unknown as { scribeMessages: unknown[] }
+      holder.scribeMessages = []
+      window.addEventListener('message', event => {
+        const { type } = (event.data ?? {}) as { type?: unknown }
+        if (typeof type !== 'string' || !type.startsWith('twake-scribe:')) {
+          return
+        }
+        holder.scribeMessages.push(event.data)
+      })
+    })
+    await this.page.goto(`${appUrl}/#/onlyoffice/${fileId}`)
+    await expect(this.page.locator('iframe[name="frameEditor"]')).toBeVisible({
+      timeout: 90_000
+    })
+    await expect
+      .poll(() => this.findPlugin() !== null, { timeout: 90_000 })
+      .toBe(true)
+    await expect.poll(() => this.hasDocument(), { timeout: 60_000 }).toBe(true)
+  }
+
+  /** Whether the editor has drawn the document. */
+  private async hasDocument(): Promise<boolean> {
+    return this.editor()
+      .evaluate(() => {
+        const { api } = (
+          window as unknown as {
+            g_asc_plugins: {
+              api: {
+                getJsApi: () => {
+                  GetDocument?: () => unknown
+                }
+              }
+            }
+          }
+        ).g_asc_plugins
+        const builder = api.getJsApi()
+        return Boolean(builder.GetDocument?.())
+      })
+      .catch(() => false)
+  }
+
+  /** Records the messages the plugin frame receives from the app. */
+  async startRecordingPluginMessages(): Promise<void> {
+    await this.plugin().evaluate(() => {
+      const holder = window as unknown as { received: string[] }
+      holder.received = []
+      window.addEventListener('message', event => {
+        const { type } = (event.data ?? {}) as { type?: unknown }
+        if (typeof type === 'string' && type.startsWith('twake-scribe:')) {
+          holder.received.push(type)
+        }
+      })
+    })
+  }
+
+  /** The messages the plugin frame received from the app. */
+  async pluginMessages(): Promise<string[]> {
+    return this.plugin().evaluate(() => {
+      const holder = window as unknown as { received?: string[] }
+      return holder.received ?? []
+    })
+  }
+
+  /**
+   * Adds a frame that tries to be the scribe plugin. It is a child of the
+   * window that shows the editor, like the real plugin is a child of the
+   * editor frame.
+   *
+   * - `app`: the frame shares the origin of the app, so only the source of
+   *   the messages can tell it from the real plugin.
+   * - `office`: the frame has the origin of the Document Server, the origin
+   *   the app trusts, so only the parent of the frame can tell it from the
+   *   real plugin.
+   */
+  async addHostileFrame(origin: 'app' | 'office'): Promise<void> {
+    await this.page.evaluate(
+      ({ name, src }) => {
+        const existing = document.querySelector(`iframe[name="${name}"]`)
+        if (existing) existing.remove()
+        const frame = document.createElement('iframe')
+        frame.name = name
+        frame.title = name
+        frame.width = '1'
+        frame.height = '1'
+        if (src) frame.src = src
+        else frame.srcdoc = '<!doctype html><title>hostile</title>'
+        document.body.appendChild(frame)
+      },
+      {
+        name: HOSTILE_FRAME_NAME,
+        src: origin === 'office' ? `${getOfficeUrl()}/healthcheck` : null
+      }
+    )
+    await expect
+      .poll(() => this.hostileFrame() !== null, { timeout: 30_000 })
+      .toBe(true)
+    await this.hostileFrame()?.evaluate(() => {
+      const holder = window as unknown as { received: string[] }
+      holder.received = []
+      window.addEventListener('message', event => {
+        const { type } = (event.data ?? {}) as { type?: unknown }
+        if (typeof type === 'string' && type.startsWith('twake-scribe:')) {
+          holder.received.push(type)
+        }
+      })
+    })
+  }
+
+  /** The frame that tries to be the scribe plugin. */
+  private hostileFrame(): Frame | null {
+    return (
+      this.page.frames().find(frame => frame.name() === HOSTILE_FRAME_NAME) ??
+      null
+    )
+  }
+
+  /** The messages the hostile frame received. */
+  async hostileMessages(): Promise<string[]> {
+    const frame = this.hostileFrame()
+    if (!frame) return []
+    return frame.evaluate(() => {
+      const holder = window as unknown as { received?: string[] }
+      return holder.received ?? []
+    })
+  }
+
+  /**
+   * Makes the hostile frame send a message to the plugin, as a forged answer
+   * would. The frame shares the origin of the app, so the message carries the
+   * origin the plugin expects: only the source of the message can refuse it.
+   */
+  async forgeToPlugin(
+    type: string,
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    const frame = this.hostileFrame()
+    if (!frame) throw new Error('No hostile frame')
+    await frame.evaluate(
+      ({ type, payload }) => {
+        const editor = window.parent.document.getElementsByName(
+          'frameEditor'
+        )[0] as HTMLIFrameElement | undefined
+        if (!editor?.contentWindow) throw new Error('No editor frame')
+        for (let index = 0; index < editor.contentWindow.frames.length; index += 1) {
+          editor.contentWindow.frames[index].postMessage(
+            { type, ...payload },
+            '*'
+          )
+        }
+      },
+      { type, payload }
+    )
+  }
+
+  /**
+   * Makes the hostile frame send a message to the app, as a forged "the
+   * plugin is ready" would. The frame has the origin of the Document Server,
+   * the origin the app trusts: only the parent of the frame can refuse it.
+   */
+  async forgeToApp(
+    type: string,
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    const frame = this.hostileFrame()
+    if (!frame) throw new Error('No hostile frame')
+    await frame.evaluate(
+      ({ type, payload }) => {
+        window.parent.postMessage({ type, ...payload }, '*')
+      },
+      { type, payload }
+    )
+  }
+
+  /** Waits for the button that opens the assistant beside the document. */
+  async waitForScribeButton(): Promise<void> {
+    await expect(
+      this.page.getByRole('button', { name: /help me write/i })
+    ).toBeVisible({ timeout: 60_000 })
+  }
+
+  /** Opens the assistant beside the document. */
+  async clickScribeButton(): Promise<void> {
+    await this.page.getByRole('button', { name: /help me write/i }).click()
   }
 }

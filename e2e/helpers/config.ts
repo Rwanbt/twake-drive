@@ -29,6 +29,22 @@ export const getAdminPort = (): number =>
 export const getStackUrl = (): string => `http://${STACK_HOST}:${getStackPort()}`
 export const getAdminUrl = (): string => `http://${STACK_HOST}:${getAdminPort()}`
 
+/**
+ * Origin of the Document Server, as the stack and the browser reach it.
+ * A frame on this origin is on the origin the app trusts: it is the origin a
+ * hostile frame would try to borrow.
+ */
+export const getOfficeUrl = (): string => {
+  const rootDomain =
+    process.env.COZY_E2E_ROOT_DOMAIN ||
+    loadE2EPorts()?.rootDomain ||
+    'cozy.localhost'
+  const officePort =
+    process.env.COZY_E2E_ONLYOFFICE_PORT ||
+    String(loadE2EPorts()?.onlyofficePort || 18081)
+  return `http://onlyoffice.${rootDomain}:${officePort}`
+}
+
 export const STACK_PORT = parseInt(
   process.env.COZY_E2E_STACK_PORT ||
     (savedPorts ? String(savedPorts.stackPort) : '18080'),

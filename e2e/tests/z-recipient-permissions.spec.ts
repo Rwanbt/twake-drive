@@ -41,6 +41,7 @@ const expectUploadSucceeds = async (
 const READER_DRIVE = `Reader Members Drive ${stamp()}`
 const EDITOR_DRIVE = `Editor Members Drive ${stamp()}`
 const LEAVE_DRIVE = `Leave Members Drive ${stamp()}`
+const LEAVE_FILE = `leave-members-${stamp()}.txt`
 // const NESTED_DRIVE = `Nested Editor Drive ${stamp()}`
 // const NESTED_CHILD = `Nested Child ${stamp()}`
 
@@ -212,6 +213,17 @@ test.describe.serial('Recipient permissions & member controls', () => {
     await aliceDrive.createFolder(LEAVE_DRIVE)
     await aliceDrive.openFolder(LEAVE_DRIVE)
 
+    // A file in the drive: leaving the shared drive must take the file away
+    // from the recipient, not only the sharing.
+    const filePath = path.join(FIXTURE_DIR, LEAVE_FILE)
+    await copyFile(SAMPLE, filePath)
+    try {
+      await aliceDrive.uploadFiles(filePath)
+      await aliceDrive.row(LEAVE_FILE).waitVisible()
+    } finally {
+      await safeUnlink(filePath)
+    }
+
     const modal = await aliceDrive.openShareModal()
     await modal.setNewMemberRole('Editor')
     await modal.addMember(USERS.bob.email)
@@ -231,15 +243,24 @@ test.describe.serial('Recipient permissions & member controls', () => {
     bobDrive
   }) => {
     await openSharedDrive(bobPage, USERS.bob, bobDrive, LEAVE_DRIVE)
+    // Bob reads the file of the shared drive before leaving it.
+    await bobDrive.row(LEAVE_FILE).waitVisible()
 
     const modal = await bobDrive.openShareFromToolbarRecipients()
 
     // Bob clicks remove on himself ("You")
     await modal.memberRemoveButton('You').click()
-
-    // The modal indicates the sharing has been cancelled for Bob
-    await expect(modal.dialog).toContainText(/cancelled sharing/i)
     await modal.close()
+
+    // The sharing is cancelled: the recipient does not read the files of the
+    // shared drive any more. The stack used to leave a "(cancelled sharing)"
+    // folder behind on the recipient's side, it does not any more
+    // (cozy-stack 1.6.66), so the test asserts the access that is revoked
+    // instead of the name of that folder.
+    await expect(async () => {
+      await bobPage.reload()
+      await expect(bobDrive.row(LEAVE_FILE).cell).toHaveCount(0)
+    }).toPass({ timeout: 30_000 })
 
     // Navigating back to Bob's sharings list. READER_DRIVE stays shared with
     // Bob: its row proves the list has loaded before asserting the absence.
