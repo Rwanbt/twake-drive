@@ -15,8 +15,7 @@ import appMetadata from '@/lib/appMetadata'
 // errors, and the context they carry, to a third party the operator never
 // chose. Without an explicit DSN, Sentry stays disabled and nothing leaves
 // the deployment.
-const sentryDsn =
-  typeof __SENTRY_DSN__ === 'string' ? __SENTRY_DSN__ : ''
+const sentryDsn = typeof __SENTRY_DSN__ === 'string' ? __SENTRY_DSN__ : ''
 
 if (sentryDsn) {
   Sentry.init({

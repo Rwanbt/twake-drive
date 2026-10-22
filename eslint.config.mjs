@@ -9,6 +9,15 @@ const basePathGroups = baseImportOrderOptions.pathGroups
 
 export default [
   { ignores: ['plugins/*/build/'] },
+  {
+    // Injected by the build from PUBLIC_SENTRY_DSN, see rsbuild.config.mjs.
+    // The reporting endpoint is opt-in: without it Sentry stays disabled.
+    languageOptions: {
+      globals: {
+        __SENTRY_DSN__: 'readonly'
+      }
+    }
+  },
   ...cozyReact,
   {
     rules: {
