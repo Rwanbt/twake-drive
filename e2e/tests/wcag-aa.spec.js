@@ -21,7 +21,7 @@ const BASELINE = JSON.parse(
   readFileSync(join(__dirname, '..', 'baselines', 'wcag-baseline.json'), 'utf8')
 )
 
-const writeInventory = (name: string, inventory: unknown): void => {
+const writeInventory = (name, inventory) => {
   mkdirSync(INVENTORY_DIRECTORY, { recursive: true })
   writeFileSync(
     join(INVENTORY_DIRECTORY, `${name}.json`),
