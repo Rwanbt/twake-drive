@@ -229,4 +229,13 @@ const mergedConfig = mergeRsbuildConfig(config, {
   }
 })
 
-export default defineConfig(mergedConfig)
+export default defineConfig({
+  ...mergedConfig,
+  define: {
+    // The Sentry DSN is opt-in: an operator who wants error reporting sets
+    // PUBLIC_SENTRY_DSN when building. Without it the bundle carries no
+    // reporting endpoint at all, so a self-hosted deployment never sends its
+    // errors to a third party it did not choose.
+    __SENTRY_DSN__: JSON.stringify(process.env.PUBLIC_SENTRY_DSN || '')
+  }
+})
