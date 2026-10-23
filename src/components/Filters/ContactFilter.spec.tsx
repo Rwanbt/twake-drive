@@ -113,6 +113,7 @@ describe('ContactFilter', () => {
   it('opens the autocomplete and selects a group', () => {
     const { defaultProps } = renderContactFilter()
 
+    expect(screen.getByLabelText('Contact')).toBeInTheDocument()
     expect(screen.queryByRole('listbox')).toBe(null)
     openContactFilter()
 

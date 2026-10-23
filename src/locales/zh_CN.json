@@ -81,6 +81,7 @@
   },
   "searchbar": {
     "placeholder": "搜索任何内容",
+    "clear": "清除搜索",
     "empty": "没有任何关于“%{query}”的内容"
   },
   "search": {

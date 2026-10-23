@@ -1,0 +1,7 @@
+﻿{
+  "folder-320": { "color-contrast": 1, "missing-accessible-name": 3, "image-alt": 2 },
+  "folder-375": { "color-contrast": 14, "missing-accessible-name": 3, "image-alt": 2 },
+  "folder-768": { "color-contrast": 1, "missing-accessible-name": 3, "image-alt": 2 },
+  "folder-1024": { "color-contrast": 40, "missing-accessible-name": 4, "image-alt": 2, "form-label": 1 },
+  "folder-1440": { "color-contrast": 40, "missing-accessible-name": 4, "image-alt": 2, "form-label": 1 }
+}

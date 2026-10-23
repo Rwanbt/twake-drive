@@ -80,6 +80,7 @@ const BarSearchAutosuggest = ({ t }) => {
   }
 
   const inputProps = {
+    'aria-label': t('searchbar.placeholder'),
     placeholder: t('searchbar.placeholder'),
     value: input,
     onChange: (event, { newValue }) => {
@@ -93,7 +94,11 @@ const BarSearchAutosuggest = ({ t }) => {
   }
 
   const renderInputComponent = inputProps => (
-    <BarSearchInputGroup isInputNotEmpty={input !== ''} onClean={cleanSearch}>
+    <BarSearchInputGroup
+      clearLabel={t('searchbar.clear')}
+      isInputNotEmpty={input !== ''}
+      onClean={cleanSearch}
+    >
       <input {...inputProps} />
     </BarSearchInputGroup>
   )

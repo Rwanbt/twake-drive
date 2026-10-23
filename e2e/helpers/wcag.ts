@@ -88,6 +88,9 @@ const collect = (): {
     return [255, 255, 255]
   }
 
+  const isDisabledForContrast = (element: HTMLElement): boolean =>
+    element.closest(':disabled, [aria-disabled="true"], .Mui-disabled') !== null
+
   const composite = (foreground: number[], background: number[]): number[] => {
     const alpha = foreground.length > 3 ? foreground[3] : 1
     if (alpha >= 1) return foreground.slice(0, 3)
@@ -112,6 +115,9 @@ const collect = (): {
   })
 
   for (const element of textElements) {
+    // WCAG 1.4.3 exempts inactive UI components. Descendants inherit this
+    // contrast exemption, but remain included in semantic checks below.
+    if (isDisabledForContrast(element)) continue
     const style = window.getComputedStyle(element)
     const foreground = parseColor(style.color)
     if (!foreground) continue
@@ -124,7 +130,7 @@ const collect = (): {
     if (ratio < required) {
       add(
         'color-contrast',
-        `${ratio}:1 (required ${required}:1) ${size}px/${weight} "${(element.textContent ?? '').trim().slice(0, 40)}"`
+        `${ratio}:1 (required ${required}:1) ${size}px/${weight} "${(element.textContent ?? '').trim().slice(0, 40)}" <${element.tagName.toLowerCase()} class="${element.className}"> color=${style.color} background=${background.join(',')}`
       )
     }
   }
@@ -164,6 +170,15 @@ const collect = (): {
     return ''
   }
 
+  const diagnosticAttributes = (element: HTMLElement): string =>
+    ['id', 'name', 'role', 'placeholder', 'aria-label', 'aria-labelledby']
+      .map(attribute => {
+        const value = element.getAttribute(attribute)
+        return value ? `${attribute}="${value}"` : null
+      })
+      .filter((value): value is string => value !== null)
+      .join(' ')
+
   for (const element of interactiveElements) {
     const name = accessibleName(element)
     if (!name) {
@@ -173,7 +188,7 @@ const collect = (): {
           element.getAttribute('class')
             ? ` class="${element.getAttribute('class')}"`
             : ''
-        }>`
+        }${diagnosticAttributes(element) ? ` ${diagnosticAttributes(element)}` : ''}>`
       )
     }
   }
@@ -218,7 +233,7 @@ const collect = (): {
           control.getAttribute('name')
             ? ` name="${control.getAttribute('name')}"`
             : ''
-        }> without a label`
+        }${diagnosticAttributes(control) ? ` ${diagnosticAttributes(control)}` : ''}> without a label`
       )
     }
   }

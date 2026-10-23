@@ -1,0 +1,42 @@
+diff --git a/dist/components/Avatar/MemberAvatar.js b/dist/components/Avatar/MemberAvatar.js
+index d2cab0efc31565eeb6ed6a4c56724d4ec3db6ecb..30e2ccc4f8a776efca9562cdc3bb18dff96c33a3 100644
+--- a/dist/components/Avatar/MemberAvatar.js
++++ b/dist/components/Avatar/MemberAvatar.js
+@@ -12,7 +12,7 @@ import { useClient } from 'cozy-client';
+ import { getPrimaryCozy } from 'cozy-client/dist/models/contact';
+ import Avatar from 'cozy-ui/transpiled/react/Avatar';
+ import logger from '../../logger';
+-import { getInitials } from '../../models';
++import { getDisplayName, getInitials } from '../../models';
+ /**
+  * makeAvatarUrl derives the avatar image URL for the recipient.
+  * - If the recipient has an avatarPath (sharing context), it is
+@@ -67,6 +67,7 @@ var MemberAvatar = function MemberAvatar(_ref) {
+   // render the initials instead.
+ 
+   return /*#__PURE__*/React.createElement(Avatar, rest, image && erroredSrc !== image ? /*#__PURE__*/React.createElement("img", {
++    alt: getDisplayName(recipient) || getInitials(recipient),
+     width: "100%",
+     height: "100%",
+     src: image,
+diff --git a/src/components/Avatar/MemberAvatar.jsx b/src/components/Avatar/MemberAvatar.jsx
+index 52e8a6c288ef54b7d84df8c1614bfd937f426e76..a68d3927039762751752e369b2098d156924c773 100644
+--- a/src/components/Avatar/MemberAvatar.jsx
++++ b/src/components/Avatar/MemberAvatar.jsx
+@@ -5,7 +5,7 @@ import { getPrimaryCozy } from 'cozy-client/dist/models/contact'
+ import Avatar from 'cozy-ui/transpiled/react/Avatar'
+ 
+ import logger from '../../logger'
+-import { getInitials } from '../../models'
++import { getDisplayName, getInitials } from '../../models'
+ 
+ /**
+  * makeAvatarUrl derives the avatar image URL for the recipient.
+@@ -59,6 +59,7 @@ const MemberAvatar = ({ recipient, ...rest }) => {
+     <Avatar {...rest}>
+       {image && erroredSrc !== image ? (
+         <img
++          alt={getDisplayName(recipient) || getInitials(recipient)}
+           width="100%"
+           height="100%"
+           src={image}

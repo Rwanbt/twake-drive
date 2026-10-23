@@ -45,6 +45,9 @@
   "Toolbar": {
     "more": "更多"
   },
+  "searchbar": {
+    "clear": "清除搜尋"
+  },
   "toolbar": {
     "menu_create_excalidraw": "Excalidraw",
     "item_more": "更多",

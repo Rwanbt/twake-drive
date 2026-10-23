@@ -651,6 +651,7 @@
   },
   "searchbar": {
     "placeholder": "Search anything",
+    "clear": "Clear search",
     "empty": "No result has been found for the query “%{query}”"
   },
   "button": {

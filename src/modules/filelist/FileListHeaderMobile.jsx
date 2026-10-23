@@ -75,6 +75,11 @@ const FileListHeaderMobile = ({
         >
           <Button
             variant="text"
+            aria-label={t(
+              viewType === 'list'
+                ? 'table.head_view_grid'
+                : 'table.head_view_list'
+            )}
             onClick={() => {
               switchViewType(viewType === 'list' ? 'grid' : 'list')
             }}

@@ -651,6 +651,7 @@
   },
   "searchbar": {
     "placeholder": "Tìm kiếm bất kỳ thứ gì",
+    "clear": "Xóa tìm kiếm",
     "empty": "Không tìm thấy kết quả cho truy vấn “%{query}”"
   },
   "button": {

@@ -494,6 +494,7 @@
   },
   "searchbar": {
     "placeholder": "Zoeken naar iets",
+    "clear": "Zoekopdracht wissen",
     "empty": "Geen resultaten gevonden voor de zoekopdracht \"%{query}\""
   },
   "button": {

@@ -1,0 +1,9 @@
+/* Cozy's alpha-based text/accent tokens miss AA on Drive's light surfaces. */
+.TwakeTheme--light {
+  --primaryColor: var(--primaryColorDark);
+  --secondaryTextColor: #6b6b6d;
+}
+
+.TwakeTheme--dark {
+  --secondaryTextColor: #c4c4c6;
+}
