@@ -89,7 +89,7 @@ const collect = (): {
   }
 
   const isDisabledForContrast = (element: HTMLElement): boolean =>
-    element.closest(':disabled, [aria-disabled="true"]') !== null
+    element.closest(':disabled, [aria-disabled="true"], .Mui-disabled') !== null
 
   const composite = (foreground: number[], background: number[]): number[] => {
     const alpha = foreground.length > 3 ? foreground[3] : 1
