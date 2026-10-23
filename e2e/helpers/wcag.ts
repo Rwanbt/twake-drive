@@ -88,6 +88,9 @@ const collect = (): {
     return [255, 255, 255]
   }
 
+  const isDisabledForContrast = (element: HTMLElement): boolean =>
+    element.closest(':disabled, [aria-disabled="true"]') !== null
+
   const composite = (foreground: number[], background: number[]): number[] => {
     const alpha = foreground.length > 3 ? foreground[3] : 1
     if (alpha >= 1) return foreground.slice(0, 3)
@@ -112,6 +115,9 @@ const collect = (): {
   })
 
   for (const element of textElements) {
+    // WCAG 1.4.3 exempts inactive UI components. Descendants inherit this
+    // contrast exemption, but remain included in semantic checks below.
+    if (isDisabledForContrast(element)) continue
     const style = window.getComputedStyle(element)
     const foreground = parseColor(style.color)
     if (!foreground) continue

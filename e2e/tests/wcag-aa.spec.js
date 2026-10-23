@@ -66,6 +66,16 @@ test.describe('WCAG 2.2 AA of the file list', () => {
         // or an increased count is a regression that must be fixed (or the
         // baseline must be re-accepted explicitly with justification).
         const baseline = BASELINE[`folder-${width}`] || {}
+        expect(
+          inventory.counts['missing-accessible-name'] ?? 0,
+          `interactive elements have accessible names at ${width}px`
+        ).toBe(0)
+        for (const rule of ['color-contrast', 'image-alt', 'form-label']) {
+          expect(
+            inventory.counts[rule] ?? 0,
+            `${rule} findings at ${width}px: ${JSON.stringify(inventory.findings)}`
+          ).toBe(0)
+        }
         for (const [rule, count] of Object.entries(inventory.counts)) {
           const allowed = baseline[rule] || 0
           expect(
